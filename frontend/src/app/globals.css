@@ -1,0 +1,256 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "DM Mono", ui-monospace, SFMono-Regular, monospace;
+
+  --color-gold-400: #E6C56E;
+  --color-gold-500: #C9A84C;
+  --color-gold-600: #AB8B39;
+
+  --color-luxury-50: #FAFAF8;
+  --color-luxury-100: #F3F1ED;
+  --color-luxury-200: #E5E1D8;
+  --color-luxury-800: #3E3B33;
+  --color-luxury-900: #292620;
+}
+
+/* ─── Keyframes ─────────────────────────────────────────── */
+@keyframes shimmer {
+  0% {
+    background-position: -700px 0;
+  }
+
+  100% {
+    background-position: 700px 0;
+  }
+}
+
+@keyframes pulse-dot {
+
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.5);
+  }
+
+  50% {
+    box-shadow: 0 0 0 6px rgba(34, 197, 94, 0);
+  }
+}
+
+@keyframes float {
+
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+/* ─── Base ───────────────────────────────────────────────── */
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--color-luxury-50);
+    color: var(--color-luxury-900);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+/* ─── Components ──────────────────────────────────────────── */
+@layer components {
+
+  /* ── Bento Card: 3D depth + top-edge highlight ── */
+  .bento-card {
+    background: #ffffff;
+    border-radius: 24px;
+    border: 1px solid rgba(229, 225, 216, 0.6);
+    padding: 24px;
+    transition: transform 300ms cubic-bezier(0.34, 1.56, 0.64, 1),
+      box-shadow 300ms ease;
+    box-shadow:
+      0 4px 6px -1px rgb(0 0 0 / 0.04),
+      0 10px 40px -8px rgb(0 0 0 / 0.08),
+      inset 0 1px 0 0 rgb(255 255 255 / 0.9),
+      0 1px 0 0 rgb(0 0 0 / 0.05);
+  }
+
+  .bento-card:hover {
+    transform: translateY(-3px);
+    box-shadow:
+      0 8px 12px -2px rgb(0 0 0 / 0.07),
+      0 24px 60px -15px rgb(0 0 0 / 0.14),
+      inset 0 1px 0 0 rgb(255 255 255 / 0.95),
+      0 1px 0 0 rgb(0 0 0 / 0.05);
+  }
+
+  .bento-card-eyebrow {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: rgba(62, 59, 51, 0.5);
+    margin-bottom: 4px;
+  }
+
+  .bento-card-title {
+    font-size: 17px;
+    font-weight: 600;
+    color: #292620;
+    letter-spacing: -0.01em;
+  }
+
+  .bento-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 16px;
+  }
+
+  /* ── Topbar Glassmorphism ── */
+  .topbar-glass {
+    background: rgba(250, 250, 248, 0.82);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border-bottom: 1px solid rgba(229, 225, 216, 0.6);
+  }
+
+  /* ── Pill Buttons ── */
+  .pill-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    padding: 10px 24px;
+    font-weight: 500;
+    font-size: 14px;
+    cursor: pointer;
+    border: none;
+    transition: all 200ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .pill-button:active {
+    transform: scale(0.93);
+  }
+
+  .pill-button-primary {
+    background: #C9A84C;
+    color: #ffffff;
+    box-shadow: 0 2px 8px rgb(201 168 76 / 0.35), inset 0 1px 0 rgb(255 255 255 / 0.18);
+  }
+
+  .pill-button-primary:hover {
+    background: #AB8B39;
+    box-shadow: 0 4px 18px rgb(201 168 76 / 0.48), inset 0 1px 0 rgb(255 255 255 / 0.18);
+    transform: translateY(-1px);
+  }
+
+  .pill-button-secondary {
+    background: #F3F1ED;
+    color: #292620;
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.8), 0 1px 3px rgb(0 0 0 / 0.06);
+  }
+
+  .pill-button-secondary:hover {
+    background: #E5E1D8;
+    transform: translateY(-1px);
+  }
+
+  .pill-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none !important;
+  }
+
+  /* ── Status Pills ── */
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 9999px;
+    padding: 4px 12px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    white-space: nowrap;
+  }
+
+  .status-pill-occupied {
+    background: #dcfce7;
+    color: #166534;
+  }
+
+  .status-pill-vacant {
+    background: #E5E1D8;
+    color: #3E3B33;
+  }
+
+  .status-pill-warning {
+    background: #ffedd5;
+    color: #9a3412;
+  }
+
+  .role-pill {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 9999px;
+    padding: 2px 8px;
+    border: 1px solid #E5E1D8;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #3E3B33;
+    background: white;
+  }
+
+  /* ── Shimmer Skeleton ── */
+  .skeleton {
+    border-radius: 12px;
+    background: linear-gradient(90deg, #f3f1ed 25%, #ede8de 37%, #f3f1ed 63%);
+    background-size: 700px 100%;
+    animation: shimmer 1.6s ease-in-out infinite;
+  }
+
+  .skeleton-gold {
+    background: linear-gradient(90deg, #f3f1ed 25%, rgba(201, 168, 76, 0.15) 37%, #f3f1ed 63%);
+    background-size: 700px 100%;
+    animation: shimmer 1.6s ease-in-out infinite;
+    border-radius: 8px;
+  }
+
+  /* ── Live dot pulse ── */
+  .live-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #22c55e;
+    animation: pulse-dot 2s ease-in-out infinite;
+  }
+
+  /* ── Field Input ── */
+  .field-input {
+    width: 100%;
+    background: #FAFAF8;
+    border: 1px solid #E5E1D8;
+    border-radius: 12px;
+    padding: 12px 16px;
+    font-size: 14px;
+    transition: all 200ms ease;
+    box-shadow: inset 0 1px 3px rgb(0 0 0 / 0.04);
+    outline: none;
+    font-family: var(--font-sans);
+  }
+
+  .field-input:focus {
+    border-color: #C9A84C;
+    box-shadow: 0 0 0 3px rgb(201 168 76 / 0.15), inset 0 1px 3px rgb(0 0 0 / 0.04);
+  }
+}

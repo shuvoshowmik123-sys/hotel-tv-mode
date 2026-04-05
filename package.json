@@ -1,0 +1,20 @@
+{
+  "name": "hotel-launcher-admin-panel",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Central admin panel and API for the hotel TV launcher",
+  "main": "server.js",
+  "scripts": {
+    "start": "set NODE_ENV=production&& node frontend/server.cjs",
+    "dev": "set NODE_ENV=development&& node frontend/server.cjs",
+    "build": "cd frontend && next build"
+  },
+  "dependencies": {
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^17.4.0",
+    "express": "^4.21.2",
+    "multer": "^2.0.2",
+    "pg": "^8.20.0"
+  }
+}

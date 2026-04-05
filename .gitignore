@@ -1,0 +1,10 @@
+.env.local
+.vercel/
+node_modules/
+frontend/node_modules/
+frontend/.next/
+frontend/.logs/
+data/store.json
+data/*.log
+uploads/
+npm-debug.log*
