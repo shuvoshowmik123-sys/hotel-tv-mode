@@ -30,7 +30,7 @@ export default function RoomsPage() {
     };
 
     useEffect(() => { load(); }, []);
-    const query = (searchParams.get("room") || "").trim().toLowerCase();
+    const query = (searchParams?.get("room") || "").trim().toLowerCase();
     const rooms = data?.rooms ? Object.values(data.rooms).filter((room: any) => room.roomNumber.toLowerCase().includes(query)) : [];
     const selectedRoom: any = rooms.find((r: any) => r.roomNumber === selectedRoomId);
     const roomReadOnly = isRoomManagementReadOnly(data?.currentUser?.role);

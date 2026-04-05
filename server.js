@@ -44,8 +44,28 @@ const DATABASE_URL = process.env.DATABASE_URL || "";
 const IMAGEKIT_PUBLIC_KEY = process.env.IMAGEKIT_PUBLIC_KEY || "";
 const IMAGEKIT_PRIVATE_KEY = process.env.IMAGEKIT_PRIVATE_KEY || "";
 
-[DATA_DIR, PUBLIC_DIR, UPLOAD_DIR, STARTUP_DIR, BACKGROUND_DIR].forEach((dir) => {
-  fs.mkdirSync(dir, { recursive: true });
+const NEEDS_LOCAL_STORE = !DATABASE_URL;
+const NEEDS_LOCAL_UPLOADS = !IMAGEKIT_PRIVATE_KEY;
+const DIRS_TO_CREATE = new Set([PUBLIC_DIR]);
+
+if (NEEDS_LOCAL_STORE) {
+  DIRS_TO_CREATE.add(DATA_DIR);
+}
+
+if (NEEDS_LOCAL_UPLOADS) {
+  DIRS_TO_CREATE.add(UPLOAD_DIR);
+  DIRS_TO_CREATE.add(STARTUP_DIR);
+  DIRS_TO_CREATE.add(BACKGROUND_DIR);
+}
+
+[...DIRS_TO_CREATE].forEach((dir) => {
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+  } catch (error) {
+    if (!process.env.VERCEL) {
+      throw error;
+    }
+  }
 });
 
 const upload = multer({

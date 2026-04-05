@@ -94,7 +94,7 @@ export function Sidebar({ user }: { user: any }) {
                         </motion.div>
                         <div className="space-y-0.5">
                             {group.routes.map((r, rIdx) => {
-                                const isActive = pathname.startsWith(r.path);
+                                const isActive = (pathname ?? "").startsWith(r.path);
                                 return (
                                     <motion.div
                                         key={r.id}

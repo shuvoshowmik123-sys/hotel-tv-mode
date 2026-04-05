@@ -26,7 +26,7 @@ export default function SessionsPage() {
     };
 
     useEffect(() => { load(); }, []);
-    const query = (searchParams.get("room") || "").trim().toLowerCase();
+    const query = (searchParams?.get("room") || "").trim().toLowerCase();
     const occupiedRooms = data?.rooms ? Object.values(data.rooms).filter((r: any) => r.guestName && r.roomNumber.toLowerCase().includes(query)) : [];
     const selectedRoom: any = selectedRoomId ? data?.rooms?.[selectedRoomId] : null;
 

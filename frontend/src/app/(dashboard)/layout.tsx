@@ -109,7 +109,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         "/settings": "Settings",
     };
 
-    const currentTitle = titles[pathname] || "Dashboard Overview";
+    const currentTitle = titles[pathname ?? "/dashboard"] || "Dashboard Overview";
 
     return (
         <div className="flex min-h-screen" style={{ background: "#FAFAF8" }}>

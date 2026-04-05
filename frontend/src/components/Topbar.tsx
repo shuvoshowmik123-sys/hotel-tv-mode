@@ -18,22 +18,23 @@ export function Topbar({
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
-    const [searchValue, setSearchValue] = useState(searchParams.get("room") || "");
+    const [searchValue, setSearchValue] = useState(searchParams?.get("room") || "");
 
     useEffect(() => {
-        setSearchValue(searchParams.get("room") || "");
+        setSearchValue(searchParams?.get("room") || "");
     }, [searchParams]);
 
     const updateRoomSearch = (value: string) => {
         setSearchValue(value);
-        const params = new URLSearchParams(searchParams.toString());
+        const params = new URLSearchParams(searchParams?.toString() || "");
         if (value.trim()) {
             params.set("room", value.trim());
         } else {
             params.delete("room");
         }
         const query = params.toString();
-        router.replace(query ? `${pathname}?${query}` : pathname);
+        const safePathname = pathname || "/dashboard";
+        router.replace(query ? `${safePathname}?${query}` : safePathname);
     };
 
     return (

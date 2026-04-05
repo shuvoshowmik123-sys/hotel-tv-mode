@@ -13,7 +13,10 @@ export function getAllowedRoutes(role?: string) {
     return ROLE_ROUTES[role as UserRole];
 }
 
-export function canAccessRoute(role: string | undefined, pathname: string) {
+export function canAccessRoute(role: string | undefined, pathname?: string | null) {
+    if (!pathname) {
+        return false;
+    }
     const allowedRoutes = getAllowedRoutes(role);
     return allowedRoutes.some((route) => pathname === route || pathname.startsWith(`${route}/`));
 }
