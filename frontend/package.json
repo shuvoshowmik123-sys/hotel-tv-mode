@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "set NODE_ENV=development&& node server.cjs",
-    "build": "next build && node scripts/mirror-vercel-output.cjs",
+    "build": "next build",
     "start": "set NODE_ENV=production&& node server.cjs",
     "lint": "eslint"
   },
