@@ -1,0 +1,5 @@
+◇ injecting env (4) from ..\.env.local // tip: ⌁ auth for agents [www.vestauth.com]
+◇ injecting env (0) from .env // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+◇ injecting env (0) from .env.local // tip: ⌘ custom filepath { path: '/custom/path/.env' }
+◇ injecting env (0) from .env // tip: ◈ secrets for agents [www.dotenvx.com]
+Asteria Grand unified app listening on http://localhost:3000

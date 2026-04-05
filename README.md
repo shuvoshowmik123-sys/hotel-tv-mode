@@ -1,54 +1,34 @@
-# Hotel Launcher Admin Panel
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
-Unified web admin panel and API for the Hotel Launcher Rebuild.
+## Getting Started
 
-## Start
+First, run the development server:
 
-```powershell
-npm install
-npm start
+```bash
+npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
 ```
 
-The panel will run on:
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-- `http://localhost:3000`
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-## Environment
+## Learn More
 
-Create `E:\hotel mode ui launcher\central-admin-panel\.env.local` with:
+To learn more about Next.js, take a look at the following resources:
 
-- `DATABASE_URL`
-- `IMAGEKIT_PUBLIC_KEY`
-- `IMAGEKIT_PRIVATE_KEY`
-- optional `PORT`
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
 
-The app now runs as a single `3000`-port experience and stores state in Postgres when `DATABASE_URL` is present. It falls back to the old local JSON store only if the database is missing.
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
-Image uploads go to ImageKit when keys are present and fall back to local `/uploads` only if ImageKit is unavailable.
+## Deploy on Vercel
 
-## What it does
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
-- Creates first-boot activation codes for TVs
-- Lets reception bind activation codes to room numbers and guest names
-- Serves one launcher content payload to bound TVs
-- Uploads startup logo and background slideshow images
-- Controls visible app packages and visible input/source titles
-- Controls breakfast/lunch/dinner menu cards and popup call info
-
-## Database bootstrap
-
-If you want to create the database schema yourself, use:
-
-- [creator.sql](E:\hotel mode ui launcher\central-admin-panel\creator.sql)
-
-## Important launcher setting
-
-The launcher reads the API base URL from the Android manifest metadata key:
-
-- `launcher_api_base_url`
-
-Current default:
-
-- `http://10.0.2.2:3000`
-
-For real TVs on the hotel network, change that manifest value to the actual server IP or DNS name before building the production APK.
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
