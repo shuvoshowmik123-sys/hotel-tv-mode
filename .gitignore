@@ -1,5 +1,6 @@
 .env.local
 .vercel/
+.next/
 node_modules/
 frontend/node_modules/
 frontend/.next/
