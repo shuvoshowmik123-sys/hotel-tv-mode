@@ -6,7 +6,7 @@ require("dotenv").config();
 
 const express = require("express");
 const next = require("next");
-const { app: adminApiApp, ensureDatabase } = require("../server.js");
+const { app: adminApiApp, ensureDatabase } = require("./admin-backend/server.js");
 
 const dev = process.env.NODE_ENV !== "production";
 const port = 3000;

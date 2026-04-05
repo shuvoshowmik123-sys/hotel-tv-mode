@@ -10,7 +10,7 @@ export const config = {
 let initPromise: Promise<void> | null = null;
 
 async function getAdminApp() {
-  const mod = await import("../../../../server.js");
+  const mod = await import("../../../admin-backend/server.js");
   if (!initPromise) {
     initPromise = Promise.resolve(mod.ensureDatabase());
   }
