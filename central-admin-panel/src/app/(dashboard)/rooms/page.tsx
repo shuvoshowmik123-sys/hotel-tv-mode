@@ -13,6 +13,9 @@ export default function RoomsPage() {
     const [loading, setLoading] = useState(true);
     const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
     const [checkoutTarget, setCheckoutTarget] = useState<any>(null);
+    const [isAddingRoom, setIsAddingRoom] = useState(false);
+    const [newRoomNumber, setNewRoomNumber] = useState("");
+    const [newRoomError, setNewRoomError] = useState("");
     const searchParams = useSearchParams();
 
     const load = async () => {
@@ -55,8 +58,27 @@ export default function RoomsPage() {
             </BentoCard>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <BentoCard title="Floor Map" eyebrow="Room Status Overview">
+                <BentoCard
+                    title="Floor Map"
+                    eyebrow="Room Status Overview"
+                    actions={
+                        !roomReadOnly && (
+                            <PillButton primary onClick={() => {
+                                setIsAddingRoom(true);
+                                setNewRoomNumber("");
+                                setNewRoomError("");
+                            }}>
+                                Add Room
+                            </PillButton>
+                        )
+                    }
+                >
                     <div className="flex flex-wrap gap-3 mt-4">
+                        {rooms.length === 0 && (
+                            <div className="w-full min-h-[160px] flex items-center justify-center rounded-xl border-2 border-dashed border-luxury-200 text-sm font-medium text-luxury-800/50">
+                                No rooms created yet.
+                            </div>
+                        )}
                         {rooms.map((room: any, i: number) => {
                             const isSelected = room.roomNumber === selectedRoomId;
                             const bgClass = isSelected ? "bg-gold-500 text-white border-gold-600" : "bg-white border-luxury-200 hover:border-gold-400";
@@ -174,6 +196,53 @@ export default function RoomsPage() {
                     load();
                 }}
             />
+
+            {/* Add Room Modal */}
+            {isAddingRoom && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm" onClick={e => e.stopPropagation()}>
+                        <h3 className="text-xl font-medium text-luxury-900 mb-2">Add New Room</h3>
+                        <p className="text-sm text-luxury-800/60 mb-6">Create a vacant room to prepare for device binding.</p>
+
+                        <form onSubmit={async (e) => {
+                            e.preventDefault();
+                            setNewRoomError("");
+                            if (!newRoomNumber.trim()) return;
+                            try {
+                                await api("/api/admin/rooms/create", {
+                                    method: "POST",
+                                    body: JSON.stringify({ roomNumber: newRoomNumber.trim() })
+                                });
+                                setIsAddingRoom(false);
+                                setSelectedRoomId(newRoomNumber.trim());
+                                load();
+                            } catch (err: any) {
+                                setNewRoomError(err.message || "Failed to create room.");
+                            }
+                        }}>
+                            <div className="mb-6">
+                                <label className="block text-xs font-bold uppercase tracking-wider text-luxury-800/60 mb-1">
+                                    Room Number
+                                </label>
+                                <input
+                                    autoFocus
+                                    type="text"
+                                    value={newRoomNumber}
+                                    onChange={e => setNewRoomNumber(e.target.value)}
+                                    placeholder="e.g. 101"
+                                    className="w-full bg-luxury-50 border border-luxury-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-gold-500/50"
+                                />
+                                {newRoomError && <div className="text-xs text-red-500 mt-2 font-medium">{newRoomError}</div>}
+                            </div>
+
+                            <div className="flex justify-end gap-3">
+                                <PillButton type="button" onClick={() => setIsAddingRoom(false)}>Cancel</PillButton>
+                                <PillButton primary type="submit" disabled={!newRoomNumber.trim()}>Create Room</PillButton>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

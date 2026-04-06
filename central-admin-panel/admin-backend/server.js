@@ -75,9 +75,9 @@ const upload = multer({
 
 const pool = DATABASE_URL
   ? new Pool({
-      connectionString: DATABASE_URL,
-      ssl: { rejectUnauthorized: false }
-    })
+    connectionString: DATABASE_URL,
+    ssl: { rejectUnauthorized: false }
+  })
   : null;
 
 app.use(cors());
@@ -654,17 +654,17 @@ async function buildAdminState(user) {
     settings:
       user.role === ROLES.SUPER_ADMIN
         ? {
-            property: store.property,
-            integration: {
-              apiKeyPreview: store.property.apiKeyPreview,
-              webhookUrl: "https://api.asteriagrand.local/webhooks/launcher"
-            },
-            subscription: {
-              plan: "Enterprise",
-              renewalDate: "2027-01-01",
-              environment: store.property.environment
-            }
+          property: store.property,
+          integration: {
+            apiKeyPreview: store.property.apiKeyPreview,
+            webhookUrl: "https://api.asteriagrand.local/webhooks/launcher"
+          },
+          subscription: {
+            plan: "Enterprise",
+            renewalDate: "2027-01-01",
+            environment: store.property.environment
           }
+        }
         : null
   };
 }
@@ -1028,6 +1028,47 @@ app.post(
     });
     await saveStore(store);
     res.json({ ok: true, store });
+  })
+);
+
+app.post(
+  "/api/admin/rooms/create",
+  requireRoles([ROLES.SUPER_ADMIN, ROLES.ADMIN], async (req, res) => {
+    const store = await getStore();
+    const roomNumber = `${req.body.roomNumber || ""}`.trim();
+    if (!roomNumber) {
+      return res.status(400).json({ error: "roomNumber is required" });
+    }
+    if (store.rooms[roomNumber]) {
+      return res.status(409).json({ error: "Room already exists" });
+    }
+
+    store.rooms[roomNumber] = {
+      roomNumber,
+      floor: roomNumber.slice(0, Math.max(1, roomNumber.length - 2)),
+      status: "unbound",
+      guestName: "",
+      deviceId: "",
+      lastSyncAt: nowIso(),
+      checkInAt: "",
+      welcomeNote: "",
+      language: "English",
+      overrideEnabled: false,
+      customContentLabel: "",
+      lastUpdatedBy: req.currentUser.name
+    };
+
+    pushAudit(store, {
+      actorName: req.currentUser.name,
+      actorRole: req.currentUser.role,
+      action: `Created new room ${roomNumber}`,
+      entityType: "ROOM",
+      entityId: roomNumber,
+      tone: "success"
+    });
+
+    await saveStore(store);
+    res.json({ ok: true, room: store.rooms[roomNumber] });
   })
 );
 
