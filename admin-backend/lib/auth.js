@@ -6,10 +6,8 @@ const ROLES = {
   RECEPTIONIST: "RECEPTIONIST"
 };
 
-const DEFAULT_PASSWORD = "Asteria@2026!";
-
 function roleLabel(role) {
-  return role.replaceAll("_", " ");
+  return `${role || ""}`.replaceAll("_", " ").trim();
 }
 
 function hashPassword(password) {
@@ -42,44 +40,49 @@ function safeUser(user) {
   };
 }
 
+function firstAdminConfig() {
+  const name = `${process.env.FIRST_ADMIN_NAME || ""}`.trim();
+  const email = `${process.env.FIRST_ADMIN_EMAIL || ""}`.trim().toLowerCase();
+  const password = `${process.env.FIRST_ADMIN_PASSWORD || ""}`.trim();
+  const propertyId = `${process.env.FIRST_ADMIN_PROPERTY_ID || process.env.PROPERTY_ID || "primary"}`.trim();
+  return {
+    name,
+    email,
+    password,
+    propertyId
+  };
+}
+
+function hasFirstAdminConfig() {
+  const config = firstAdminConfig();
+  return Boolean(config.name && config.email && config.password);
+}
+
 function seededUsers(propertyId) {
+  if (!hasFirstAdminConfig()) {
+    return [];
+  }
+  const config = firstAdminConfig();
   return [
     {
       id: "user-super-admin",
-      name: "Asteria Super Admin",
-      email: "superadmin@asteriagrand.local",
+      name: config.name,
+      email: config.email,
       role: ROLES.SUPER_ADMIN,
       status: "ACTIVE",
-      propertyId,
-      password: DEFAULT_PASSWORD
-    },
-    {
-      id: "user-admin",
-      name: "Asteria Property Admin",
-      email: "admin@asteriagrand.local",
-      role: ROLES.ADMIN,
-      status: "ACTIVE",
-      propertyId,
-      password: DEFAULT_PASSWORD
-    },
-    {
-      id: "user-reception",
-      name: "Asteria Reception",
-      email: "reception@asteriagrand.local",
-      role: ROLES.RECEPTIONIST,
-      status: "ACTIVE",
-      propertyId,
-      password: DEFAULT_PASSWORD
+      propertyId: config.propertyId || propertyId,
+      password: config.password
     }
   ];
 }
 
 module.exports = {
   ROLES,
-  DEFAULT_PASSWORD,
   roleLabel,
   hashPassword,
   verifyPassword,
   safeUser,
-  seededUsers
+  seededUsers,
+  firstAdminConfig,
+  hasFirstAdminConfig
 };

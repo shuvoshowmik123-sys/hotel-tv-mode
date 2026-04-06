@@ -1,7 +1,7 @@
 const path = require("path");
 
 process.env.ADMIN_DISABLE_STATIC = "1";
-require("dotenv").config({ path: path.join(__dirname, "..", ".env.local") });
+require("dotenv").config({ path: path.join(__dirname, ".env.local") });
 require("dotenv").config();
 
 const express = require("express");
@@ -29,7 +29,7 @@ async function start() {
   server.all(/.*/, (req, res) => handle(req, res));
 
   server.listen(port, hostname, () => {
-    console.log(`Asteria Grand unified app listening on http://localhost:${port}`);
+    console.log(`Hotel admin panel listening on http://localhost:${port}`);
   });
 }
 

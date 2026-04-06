@@ -117,7 +117,7 @@ export default function BindingPage() {
                             value={welcomeNote}
                             onChange={e => setWelcomeNote(e.target.value)}
                             className="w-full bg-luxury-50 border border-luxury-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-gold-500/50 focus:border-gold-500 transition-colors resize-none"
-                            placeholder="Welcome to Asteria Grand..."
+                            placeholder="Welcome to your room..."
                         />
                     </div>
                     {message && (

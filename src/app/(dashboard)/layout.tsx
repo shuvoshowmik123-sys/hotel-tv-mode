@@ -84,7 +84,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     className="w-16 h-16 rounded-2xl flex items-center justify-center font-bold text-2xl text-white"
                     style={{ background: "linear-gradient(135deg, #E6C56E, #C9A84C, #AB8B39)" }}
                 >
-                    AG
+                    CP
                 </motion.div>
                 <div className="text-sm font-semibold" style={{ color: "rgba(62,59,51,0.5)" }}>
                     Loading workspace...
