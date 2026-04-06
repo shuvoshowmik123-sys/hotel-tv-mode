@@ -10,21 +10,25 @@ const multer = require("multer");
 const cookieParser = require("cookie-parser");
 const { Pool } = require("pg");
 const {
+  MEAL_CATEGORIES,
   nowIso,
   defaultProperty,
   createDefaultStore,
   normalizeStore,
+  normalizeRoom,
+  normalizeMenuItem,
   pushAudit,
   buildWorkflowSteps
 } = require("./lib/panel-data");
 const {
   ROLES,
-  DEFAULT_PASSWORD,
   roleLabel,
   hashPassword,
   verifyPassword,
   safeUser,
-  seededUsers
+  seededUsers,
+  hasFirstAdminConfig,
+  firstAdminConfig
 } = require("./lib/auth");
 
 const app = express();
@@ -36,13 +40,20 @@ const PUBLIC_DIR = path.join(ROOT, "public");
 const UPLOAD_DIR = path.join(ROOT, "uploads");
 const STARTUP_DIR = path.join(UPLOAD_DIR, "startup");
 const BACKGROUND_DIR = path.join(UPLOAD_DIR, "backgrounds");
-const SESSION_COOKIE = "asteria_admin_session";
+const SESSION_COOKIE = "hotel_admin_session";
 const SESSION_TTL_DAYS = 7;
 const DISABLE_STATIC_UI = process.env.ADMIN_DISABLE_STATIC === "1";
 
 const DATABASE_URL = process.env.DATABASE_URL || "";
 const IMAGEKIT_PUBLIC_KEY = process.env.IMAGEKIT_PUBLIC_KEY || "";
 const IMAGEKIT_PRIVATE_KEY = process.env.IMAGEKIT_PRIVATE_KEY || "";
+const PANEL_WEBHOOK_URL = process.env.PANEL_WEBHOOK_URL || "";
+const PANEL_SUBSCRIPTION_PLAN = process.env.PANEL_SUBSCRIPTION_PLAN || "";
+const PANEL_SUBSCRIPTION_RENEWAL_DATE = process.env.PANEL_SUBSCRIPTION_RENEWAL_DATE || "";
+const IS_PRODUCTION =
+  process.env.NODE_ENV === "production" ||
+  process.env.VERCEL_ENV === "production" ||
+  process.env.VERCEL === "1";
 
 const NEEDS_LOCAL_STORE = !DATABASE_URL;
 const NEEDS_LOCAL_UPLOADS = !IMAGEKIT_PRIVATE_KEY;
@@ -89,6 +100,21 @@ if (!DISABLE_STATIC_UI) {
   app.use(express.static(PUBLIC_DIR));
 }
 
+function validateRuntimeConfig() {
+  if (IS_PRODUCTION && !DATABASE_URL) {
+    throw new Error("DATABASE_URL is required in production.");
+  }
+  if (IS_PRODUCTION && (!IMAGEKIT_PUBLIC_KEY || !IMAGEKIT_PRIVATE_KEY)) {
+    throw new Error("Persistent asset storage is required in production. Set IMAGEKIT_PUBLIC_KEY and IMAGEKIT_PRIVATE_KEY.");
+  }
+  if (IS_PRODUCTION && !hasFirstAdminConfig()) {
+    const config = firstAdminConfig();
+    throw new Error(
+      `FIRST_ADMIN_NAME, FIRST_ADMIN_EMAIL, and FIRST_ADMIN_PASSWORD are required in production. Current values: name=${Boolean(config.name)}, email=${Boolean(config.email)}, password=${Boolean(config.password)}`
+    );
+  }
+}
+
 function randomToken(size = 8) {
   return crypto.randomBytes(size).toString("hex");
 }
@@ -97,7 +123,8 @@ function createFileSeed() {
   return {
     store: createDefaultStore(),
     pendingActivations: {},
-    bindings: {}
+    bindings: {},
+    deviceStatuses: {}
   };
 }
 
@@ -115,7 +142,8 @@ function readFileState() {
   return {
     store: normalizeStore(parsed),
     pendingActivations: parsed.pendingActivations || {},
-    bindings: parsed.bindings || {}
+    bindings: parsed.bindings || {},
+    deviceStatuses: parsed.deviceStatuses || {}
   };
 }
 
@@ -124,6 +152,7 @@ function writeFileState(state) {
 }
 
 async function ensureDatabase() {
+  validateRuntimeConfig();
   if (!pool) {
     return;
   }
@@ -151,6 +180,19 @@ async function ensureDatabase() {
       device_id TEXT NOT NULL,
       mac_address TEXT,
       bound_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS device_status_reports (
+      session_token TEXT PRIMARY KEY,
+      room_number TEXT NOT NULL,
+      device_id TEXT NOT NULL,
+      mac_address TEXT,
+      model_name TEXT,
+      launcher_version TEXT,
+      api_base_url TEXT,
+      installed_apps JSONB NOT NULL DEFAULT '[]'::jsonb,
+      source_inputs JSONB NOT NULL DEFAULT '[]'::jsonb,
+      reported_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
 
     CREATE TABLE IF NOT EXISTS admin_users (
@@ -260,7 +302,7 @@ async function listUsers() {
       propertyId: row.property_id,
       createdAt: row.created_at
     })
-  );
+  ).filter((user) => user.status !== "ARCHIVED");
 }
 
 async function findUserByEmail(email) {
@@ -363,6 +405,49 @@ async function updateUser(userId, payload) {
     [userId, next.name, next.email, next.passwordHash, next.role, next.status, next.propertyId]
   );
   return safeUser(next);
+}
+
+async function countActiveSuperAdmins(excludedUserId = null) {
+  if (!pool) {
+    return seededUsers(defaultProperty().id).filter(
+      (user) => user.role === ROLES.SUPER_ADMIN && user.status === "ACTIVE" && user.id !== excludedUserId
+    ).length;
+  }
+  const result = await pool.query(
+    `SELECT COUNT(*)::int AS count
+     FROM admin_users
+     WHERE role = $1
+       AND status = 'ACTIVE'
+       AND ($2::text IS NULL OR id <> $2::text)`,
+    [ROLES.SUPER_ADMIN, excludedUserId]
+  );
+  return result.rows[0]?.count || 0;
+}
+
+async function archiveUser(userId) {
+  if (!pool) {
+    return null;
+  }
+  const current = await findUserById(userId);
+  if (!current) {
+    return null;
+  }
+  if (current.role === ROLES.SUPER_ADMIN && current.status === "ACTIVE") {
+    const others = await countActiveSuperAdmins(userId);
+    if (others === 0) {
+      throw new Error("At least one active super admin must remain.");
+    }
+  }
+  await pool.query(
+    `UPDATE admin_users
+     SET status = 'ARCHIVED'
+     WHERE id = $1`,
+    [userId]
+  );
+  return safeUser({
+    ...current,
+    status: "ARCHIVED"
+  });
 }
 
 async function createSession(userId) {
@@ -608,15 +693,292 @@ async function createBinding(binding) {
   return binding;
 }
 
-function buildMetrics(store, pendingActivations, bindings) {
-  const rooms = Object.values(store.rooms);
+async function deleteBindingBySessionToken(sessionToken) {
+  if (!pool) {
+    const state = readFileState();
+    delete state.bindings[sessionToken];
+    writeFileState(state);
+    return;
+  }
+  await pool.query("DELETE FROM device_bindings WHERE session_token = $1", [sessionToken]);
+}
+
+async function findBindingsByRoomNumber(roomNumber) {
+  const bindings = await getBindingsMap();
+  return Object.values(bindings).filter((binding) => binding.roomNumber === roomNumber);
+}
+
+function normalizeReportedInstalledApps(items) {
+  return Array.isArray(items)
+    ? items
+      .filter((item) => item && item.packageName && item.title)
+      .map((item) => ({
+        packageName: `${item.packageName}`.trim(),
+        title: `${item.title}`.trim(),
+        isSystemApp: Boolean(item.isSystemApp),
+        isLaunchable: item.isLaunchable !== false
+      }))
+    : [];
+}
+
+function normalizeReportedSourceInputs(items) {
+  return Array.isArray(items)
+    ? items
+      .filter((item) => item && item.id && item.title)
+      .map((item) => ({
+        id: `${item.id}`.trim(),
+        title: `${item.title}`.trim(),
+        subtitle: `${item.subtitle || ""}`.trim(),
+        sourceKind: `${item.sourceKind || "OTHER"}`.trim(),
+        isAvailable: item.isAvailable !== false,
+        isActive: Boolean(item.isActive),
+        isSystemProvided: Boolean(item.isSystemProvided),
+        preferredPackageName: item.preferredPackageName || null,
+        preferredActivityClassName: item.preferredActivityClassName || null,
+        preferredIntentAction: item.preferredIntentAction || null,
+        passthroughInputId: item.passthroughInputId || null
+      }))
+    : [];
+}
+
+function normalizeDeviceStatusReport(binding, payload) {
   return {
-    onlineTvs: Object.keys(bindings).length,
+    sessionToken: binding.sessionToken,
+    roomNumber: binding.roomNumber,
+    deviceId: `${payload.deviceId || binding.deviceId || ""}`.trim(),
+    macAddress: payload.macAddress || binding.macAddress || null,
+    modelName: payload.modelName || null,
+    launcherVersion: payload.launcherVersion || null,
+    apiBaseUrl: payload.apiBaseUrl || null,
+    installedApps: normalizeReportedInstalledApps(payload.installedApps),
+    sourceInputs: normalizeReportedSourceInputs(payload.sourceInputs),
+    reportedAt: nowIso()
+  };
+}
+
+async function getDeviceStatusesMap() {
+  if (!pool) {
+    return readFileState().deviceStatuses || {};
+  }
+  const result = await pool.query(
+    `SELECT
+      session_token,
+      room_number,
+      device_id,
+      mac_address,
+      model_name,
+      launcher_version,
+      api_base_url,
+      installed_apps,
+      source_inputs,
+      reported_at
+     FROM device_status_reports
+     ORDER BY reported_at DESC`
+  );
+  return Object.fromEntries(
+    result.rows.map((row) => [
+      row.session_token,
+      {
+        sessionToken: row.session_token,
+        roomNumber: row.room_number,
+        deviceId: row.device_id,
+        macAddress: row.mac_address,
+        modelName: row.model_name,
+        launcherVersion: row.launcher_version,
+        apiBaseUrl: row.api_base_url,
+        installedApps: normalizeReportedInstalledApps(row.installed_apps),
+        sourceInputs: normalizeReportedSourceInputs(row.source_inputs),
+        reportedAt: row.reported_at
+      }
+    ])
+  );
+}
+
+async function saveDeviceStatusReport(report) {
+  if (!pool) {
+    const state = readFileState();
+    state.deviceStatuses = state.deviceStatuses || {};
+    state.deviceStatuses[report.sessionToken] = report;
+    writeFileState(state);
+    return report;
+  }
+  await pool.query(
+    `INSERT INTO device_status_reports
+      (
+        session_token,
+        room_number,
+        device_id,
+        mac_address,
+        model_name,
+        launcher_version,
+        api_base_url,
+        installed_apps,
+        source_inputs,
+        reported_at
+      )
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::jsonb, $10)
+     ON CONFLICT (session_token)
+     DO UPDATE SET
+       room_number = EXCLUDED.room_number,
+       device_id = EXCLUDED.device_id,
+       mac_address = EXCLUDED.mac_address,
+       model_name = EXCLUDED.model_name,
+       launcher_version = EXCLUDED.launcher_version,
+       api_base_url = EXCLUDED.api_base_url,
+       installed_apps = EXCLUDED.installed_apps,
+       source_inputs = EXCLUDED.source_inputs,
+       reported_at = EXCLUDED.reported_at`,
+    [
+      report.sessionToken,
+      report.roomNumber,
+      report.deviceId,
+      report.macAddress,
+      report.modelName,
+      report.launcherVersion,
+      report.apiBaseUrl,
+      JSON.stringify(report.installedApps || []),
+      JSON.stringify(report.sourceInputs || []),
+      report.reportedAt
+    ]
+  );
+  return report;
+}
+
+async function deleteDeviceStatusBySessionToken(sessionToken) {
+  if (!pool) {
+    const state = readFileState();
+    if (state.deviceStatuses) {
+      delete state.deviceStatuses[sessionToken];
+      writeFileState(state);
+    }
+    return;
+  }
+  await pool.query("DELETE FROM device_status_reports WHERE session_token = $1", [sessionToken]);
+}
+
+function activeRoomsMap(store) {
+  return Object.fromEntries(
+    Object.entries(store.rooms || {})
+      .filter(([, room]) => !room.archivedAt)
+      .sort(([left], [right]) => left.localeCompare(right))
+  );
+}
+
+function activeMeals(store) {
+  const result = {};
+  MEAL_CATEGORIES.forEach((category) => {
+    result[category] = (store.meals?.[category] || []).filter((item) => !item.archivedAt);
+  });
+  return result;
+}
+
+function buildAvailableApps(store, deviceStatuses) {
+  const appMap = new Map();
+  (store.availableApps || []).forEach((app) => {
+    appMap.set(app.packageName, {
+      ...app,
+      installedOnDevices: 0,
+      lastSeenAt: null
+    });
+  });
+  Object.values(deviceStatuses).forEach((status) => {
+    (status.installedApps || []).forEach((app) => {
+      const existing = appMap.get(app.packageName) || {
+        id: `reported_${app.packageName.replace(/[^a-zA-Z0-9]+/g, "_").toLowerCase()}`,
+        packageName: app.packageName,
+        name: app.title,
+        description: app.isSystemApp ? "System app reported by bound TVs" : "App reported by bound TVs",
+        installedOnDevices: 0,
+        lastSeenAt: null
+      };
+      existing.installedOnDevices += 1;
+      if (!existing.lastSeenAt || new Date(status.reportedAt).getTime() > new Date(existing.lastSeenAt).getTime()) {
+        existing.lastSeenAt = status.reportedAt;
+      }
+      appMap.set(app.packageName, existing);
+    });
+  });
+  return [...appMap.values()].sort((left, right) => `${left.name}`.localeCompare(`${right.name}`));
+}
+
+function buildAvailableInputs(store, deviceStatuses) {
+  const inputMap = new Map();
+  (store.availableInputs || []).forEach((input) => {
+    inputMap.set(input.title, {
+      ...input,
+      detectedOnDevices: 0,
+      activeOnDevices: 0,
+      lastSeenAt: null
+    });
+  });
+  Object.values(deviceStatuses).forEach((status) => {
+    (status.sourceInputs || []).forEach((input) => {
+      const existing = inputMap.get(input.title) || {
+        id: `reported_${input.id.replace(/[^a-zA-Z0-9]+/g, "_").toLowerCase()}`,
+        title: input.title,
+        description: input.subtitle || `${input.sourceKind} source reported by bound TVs`,
+        detectedOnDevices: 0,
+        activeOnDevices: 0,
+        lastSeenAt: null
+      };
+      existing.detectedOnDevices += 1;
+      if (input.isActive) {
+        existing.activeOnDevices += 1;
+      }
+      if (!existing.lastSeenAt || new Date(status.reportedAt).getTime() > new Date(existing.lastSeenAt).getTime()) {
+        existing.lastSeenAt = status.reportedAt;
+      }
+      inputMap.set(input.title, existing);
+    });
+  });
+  return [...inputMap.values()].sort((left, right) => `${left.title}`.localeCompare(`${right.title}`));
+}
+
+function buildAssetEntries(store) {
+  const assets = [];
+  if (store.hotel?.startupLogoUrl) {
+    assets.push({
+      id: crypto.createHash("md5").update(`startup:${store.hotel.startupLogoUrl}`).digest("hex"),
+      kind: "startup",
+      bucket: "startup",
+      url: store.hotel.startupLogoUrl
+    });
+  }
+  Object.entries(store.backgrounds || {}).forEach(([bucket, urls]) => {
+    (urls || []).forEach((url) => {
+      assets.push({
+        id: crypto.createHash("md5").update(`${bucket}:${url}`).digest("hex"),
+        kind: "background",
+        bucket,
+        url
+      });
+    });
+  });
+  return assets;
+}
+
+function bestEffortDeleteLocalAsset(url) {
+  if (!url || typeof url !== "string" || !url.startsWith("/uploads/")) {
+    return;
+  }
+  const relativePath = url.replace(/^\/+/, "").replaceAll("/", path.sep);
+  const assetPath = path.join(ROOT, relativePath);
+  if (assetPath.startsWith(UPLOAD_DIR) && fs.existsSync(assetPath)) {
+    fs.unlinkSync(assetPath);
+  }
+}
+
+function buildMetrics(store, pendingActivations, bindings, deviceStatuses) {
+  const rooms = Object.values(activeRoomsMap(store));
+  const onlineTvs = Object.keys(deviceStatuses).length || Object.keys(bindings).length;
+  return {
+    onlineTvs,
     occupiedRooms: rooms.filter((room) => room.status === "occupied").length,
     pendingBindings: Object.keys(pendingActivations).length,
     unboundDevices: rooms.filter((room) => room.status === "unbound").length,
     vacantRooms: rooms.filter((room) => room.status === "vacant").length,
-    offlineRooms: Math.max(rooms.length - Object.keys(bindings).length, 0)
+    offlineRooms: Math.max(rooms.length - onlineTvs, 0),
+    syncVersion: Number(store.sync?.version || 0)
   };
 }
 
@@ -624,7 +986,18 @@ async function buildAdminState(user) {
   const store = await getStore();
   const pendingActivations = await getPendingActivationsMap();
   const bindings = await getBindingsMap();
-  const metrics = buildMetrics(store, pendingActivations, bindings);
+  const deviceStatuses = await getDeviceStatusesMap();
+  const metrics = buildMetrics(store, pendingActivations, bindings, deviceStatuses);
+  const rooms = activeRoomsMap(store);
+  const meals = activeMeals(store);
+  const availableApps = buildAvailableApps(store, deviceStatuses);
+  const availableInputs = buildAvailableInputs(store, deviceStatuses);
+  const assets = buildAssetEntries(store);
+  const lastDeviceHeartbeat = Object.values(deviceStatuses)
+    .map((status) => status.reportedAt)
+    .filter(Boolean)
+    .sort()
+    .at(-1) || null;
   return {
     currentUser: safeUser(user),
     property: store.property,
@@ -632,20 +1005,26 @@ async function buildAdminState(user) {
     weather: store.weather,
     popup: store.popup,
     backgrounds: store.backgrounds,
-    meals: store.meals,
-    sections: Object.values(store.sections),
+    meals,
+    sections: Object.values(store.sections || {}).filter((section) => section && section.enabled !== false),
     visibility: store.visibility,
-    availableApps: store.availableApps,
-    availableInputs: store.availableInputs,
-    rooms: store.rooms,
+    availableApps,
+    availableInputs,
+    rooms,
+    assets,
     pendingActivations,
     bindings,
+    deviceStatuses,
     metrics,
-    workflowSteps: buildWorkflowSteps(),
+    workflowSteps: buildWorkflowSteps(metrics),
     systemHealth: {
       apiStatus: "Healthy",
       lastPushTime: store.sync.updatedAt,
-      launcherVersion: "Asteria Launcher 1.0.0",
+      lastDeviceHeartbeat,
+      launcherVersion:
+        Object.values(deviceStatuses)
+          .map((status) => status.launcherVersion)
+          .find(Boolean) || "Not configured",
       syncVersion: store.sync.version
     },
     notifications: (store.notifications || []).slice(0, 10),
@@ -654,23 +1033,24 @@ async function buildAdminState(user) {
     settings:
       user.role === ROLES.SUPER_ADMIN
         ? {
-          property: store.property,
-          integration: {
-            apiKeyPreview: store.property.apiKeyPreview,
-            webhookUrl: "https://api.asteriagrand.local/webhooks/launcher"
-          },
-          subscription: {
-            plan: "Enterprise",
-            renewalDate: "2027-01-01",
-            environment: store.property.environment
+            property: store.property,
+            integration: {
+              apiKeyPreview: store.property.apiKeyPreview || "",
+              webhookUrl: PANEL_WEBHOOK_URL || ""
+            },
+            subscription: {
+              plan: PANEL_SUBSCRIPTION_PLAN || "",
+              renewalDate: PANEL_SUBSCRIPTION_RENEWAL_DATE || "",
+              environment: store.property.environment || ""
+            }
           }
-        }
         : null
   };
 }
 
 function buildPayload(store, binding) {
   const room = store.rooms[binding.roomNumber] || { roomNumber: binding.roomNumber, guestName: "" };
+  const meals = activeMeals(store);
   return {
     roomNumber: room.roomNumber,
     guestName: room.guestName || "",
@@ -678,8 +1058,9 @@ function buildPayload(store, binding) {
     weather: store.weather,
     popup: store.popup,
     backgrounds: store.backgrounds,
-    meals: store.meals,
-    sections: Object.values(store.sections),
+    meals,
+    sections: Object.values(store.sections || {}).filter((section) => section && section.enabled !== false),
+    notifications: (store.notifications || []).slice(0, 10),
     visibility: store.visibility,
     sync: {
       version: store.sync.version,
@@ -719,8 +1100,8 @@ async function uploadToImageKit(file, kind, bucket) {
   const fileName = `${Date.now()}-${crypto.randomBytes(4).toString("hex")}${ext}`;
   const folder =
     kind === "startup"
-      ? "/asteria-grand/startup"
-      : `/asteria-grand/backgrounds/${bucket}`;
+      ? "/hotel-central-admin-panel/startup"
+      : `/hotel-central-admin-panel/backgrounds/${bucket}`;
   const body = new FormData();
   const dataUri = `data:${file.mimetype || "application/octet-stream"};base64,${file.buffer.toString("base64")}`;
   body.append("file", dataUri);
@@ -746,12 +1127,18 @@ async function uploadToImageKit(file, kind, bucket) {
 }
 
 async function persistUpload(file, kind, bucket) {
+  if (IS_PRODUCTION && (!IMAGEKIT_PUBLIC_KEY || !IMAGEKIT_PRIVATE_KEY)) {
+    throw new Error("Persistent asset storage is not configured.");
+  }
   try {
     const remoteUrl = await uploadToImageKit(file, kind, bucket);
     if (remoteUrl) {
       return remoteUrl;
     }
   } catch (error) {
+    if (IS_PRODUCTION) {
+      throw error;
+    }
     console.error("ImageKit upload failed, falling back to local storage:", error.message);
   }
   return saveFileLocally(file, kind, bucket);
@@ -811,7 +1198,7 @@ app.get(
     }
     res.json({
       ok: true,
-      service: "asteria-grand-central-admin-panel",
+      service: "hotel-central-admin-panel",
       database,
       imageStorage: IMAGEKIT_PRIVATE_KEY ? "imagekit" : "local"
     });
@@ -837,7 +1224,7 @@ app.post(
       secure: false,
       maxAge: SESSION_TTL_DAYS * 24 * 60 * 60 * 1000
     });
-    res.json({ ok: true, user: safeUser(user), demoPassword: DEFAULT_PASSWORD });
+    res.json({ ok: true, user: safeUser(user) });
   })
 );
 
@@ -927,6 +1314,36 @@ app.get(
   })
 );
 
+app.post(
+  "/api/device/status",
+  asyncHandler(async (req, res) => {
+    const sessionToken = `${req.body.sessionToken || ""}`.trim();
+    if (!sessionToken) {
+      return res.status(400).json({ error: "sessionToken is required" });
+    }
+    const binding = await findBindingBySessionToken(sessionToken);
+    if (!binding) {
+      return res.status(401).json({ error: "Invalid session token" });
+    }
+    const report = normalizeDeviceStatusReport(binding, req.body || {});
+    await saveDeviceStatusReport(report);
+
+    const store = await getStore();
+    const room = store.rooms[binding.roomNumber];
+    if (room) {
+      store.rooms[binding.roomNumber] = normalizeRoom(binding.roomNumber, {
+        ...room,
+        deviceId: report.deviceId || room.deviceId,
+        hasBindingHistory: true,
+        lastSyncAt: report.reportedAt
+      }, store.sync.updatedAt);
+      await saveStore(store);
+    }
+
+    res.json({ ok: true, reportedAt: report.reportedAt });
+  })
+);
+
 app.get(
   "/api/admin/state",
   requireAuth(async (req, res) => {
@@ -970,6 +1387,20 @@ app.post(
 app.patch(
   "/api/admin/users/:userId",
   requireRoles([ROLES.SUPER_ADMIN], async (req, res) => {
+    const current = await findUserById(req.params.userId);
+    if (!current) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    if (
+      current.role === ROLES.SUPER_ADMIN &&
+      current.status === "ACTIVE" &&
+      ((req.body.role && req.body.role !== ROLES.SUPER_ADMIN) || (req.body.status && req.body.status !== "ACTIVE"))
+    ) {
+      const others = await countActiveSuperAdmins(req.params.userId);
+      if (others === 0) {
+        return res.status(400).json({ error: "At least one active super admin must remain." });
+      }
+    }
     const user = await updateUser(req.params.userId, req.body || {});
     if (!user) {
       return res.status(404).json({ error: "User not found" });
@@ -988,6 +1419,32 @@ app.patch(
   })
 );
 
+app.delete(
+  "/api/admin/users/:userId",
+  requireRoles([ROLES.SUPER_ADMIN], async (req, res) => {
+    let user;
+    try {
+      user = await archiveUser(req.params.userId);
+    } catch (error) {
+      return res.status(400).json({ error: error.message || "Unable to archive user" });
+    }
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    const store = await getStore();
+    pushAudit(store, {
+      actorName: req.currentUser.name,
+      actorRole: req.currentUser.role,
+      action: `Archived user account for ${user.name}`,
+      entityType: "USER",
+      entityId: user.id,
+      tone: "warning"
+    });
+    await saveStore(store);
+    res.json({ ok: true, user });
+  })
+);
+
 app.post(
   "/api/admin/config",
   requireRoles([ROLES.SUPER_ADMIN, ROLES.ADMIN], async (req, res) => {
@@ -997,19 +1454,39 @@ app.post(
     store.weather = { ...store.weather, ...(next.weather || {}) };
     store.popup = { ...store.popup, ...(next.popup || {}) };
     store.backgrounds = { ...store.backgrounds, ...(next.backgrounds || {}) };
-    store.meals = { ...store.meals, ...(next.meals || {}) };
+    if (next.meals) {
+      store.meals = {
+        ...store.meals,
+        ...Object.fromEntries(
+          MEAL_CATEGORIES.map((category) => [
+            category,
+            Array.isArray(next.meals?.[category])
+              ? next.meals[category].map((item) => normalizeMenuItem(category, item))
+              : store.meals[category] || []
+          ])
+        )
+      };
+    }
     if (next.sections) {
       const mergedSections = Array.isArray(next.sections)
         ? next.sections
         : Object.values(next.sections);
       mergedSections.forEach((section) => {
-        store.sections[section.id] = section;
+        if (section?.id) {
+          store.sections[section.id] = section;
+        }
       });
     }
     if (next.visibility) {
       store.visibility = {
         ...store.visibility,
-        ...next.visibility
+        ...next.visibility,
+        visibleAppPackages: Array.isArray(next.visibility.visibleAppPackages)
+          ? next.visibility.visibleAppPackages.filter(Boolean)
+          : store.visibility.visibleAppPackages,
+        visibleSourceTitles: Array.isArray(next.visibility.visibleSourceTitles)
+          ? next.visibility.visibleSourceTitles.filter(Boolean)
+          : store.visibility.visibleSourceTitles
       };
     }
     if (next.sync?.ttlSeconds) {
@@ -1021,13 +1498,67 @@ app.post(
     pushAudit(store, {
       actorName: req.currentUser.name,
       actorRole: req.currentUser.role,
-      action: "Pushed launcher content and policy changes",
+      action: "Updated launcher configuration",
       entityType: "LAUNCHER_CONFIG",
       entityId: "global",
       tone: "success"
     });
     await saveStore(store);
     res.json({ ok: true, store });
+  })
+);
+
+app.get(
+  "/api/admin/rooms",
+  requireRoles([ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.RECEPTIONIST], async (_, res) => {
+    const store = await getStore();
+    res.json({ rooms: activeRoomsMap(store) });
+  })
+);
+
+app.post(
+  "/api/admin/rooms",
+  requireRoles([ROLES.SUPER_ADMIN, ROLES.ADMIN], async (req, res) => {
+    const store = await getStore();
+    const roomNumber = `${req.body.roomNumber || ""}`.trim();
+    if (!roomNumber) {
+      return res.status(400).json({ error: "roomNumber is required" });
+    }
+    const existing = store.rooms[roomNumber];
+    if (existing && !existing.archivedAt) {
+      return res.status(409).json({ error: "Room already exists" });
+    }
+
+    store.rooms[roomNumber] = normalizeRoom(
+      roomNumber,
+      {
+        ...(existing || {}),
+        roomNumber,
+        floor: req.body.floor || existing?.floor || roomNumber.slice(0, Math.max(1, roomNumber.length - 2)),
+        status: "unbound",
+        guestName: "",
+        deviceId: "",
+        checkInAt: "",
+        welcomeNote: "",
+        archivedAt: null,
+        archivedBy: null,
+        lastSyncAt: nowIso(),
+        lastUpdatedBy: req.currentUser.name
+      },
+      store.sync.updatedAt
+    );
+
+    pushAudit(store, {
+      actorName: req.currentUser.name,
+      actorRole: req.currentUser.role,
+      action: existing?.archivedAt ? `Restored room ${roomNumber}` : `Created new room ${roomNumber}`,
+      entityType: "ROOM",
+      entityId: roomNumber,
+      tone: "success"
+    });
+
+    await saveStore(store);
+    res.json({ ok: true, room: store.rooms[roomNumber] });
   })
 );
 
@@ -1039,70 +1570,114 @@ app.post(
     if (!roomNumber) {
       return res.status(400).json({ error: "roomNumber is required" });
     }
-    if (store.rooms[roomNumber]) {
+    const existing = store.rooms[roomNumber];
+    if (existing && !existing.archivedAt) {
       return res.status(409).json({ error: "Room already exists" });
     }
-
-    store.rooms[roomNumber] = {
+    store.rooms[roomNumber] = normalizeRoom(
       roomNumber,
-      floor: roomNumber.slice(0, Math.max(1, roomNumber.length - 2)),
-      status: "unbound",
-      guestName: "",
-      deviceId: "",
-      lastSyncAt: nowIso(),
-      checkInAt: "",
-      welcomeNote: "",
-      language: "English",
-      overrideEnabled: false,
-      customContentLabel: "",
-      lastUpdatedBy: req.currentUser.name
-    };
-
+      {
+        ...(existing || {}),
+        roomNumber,
+        floor: req.body.floor || existing?.floor || roomNumber.slice(0, Math.max(1, roomNumber.length - 2)),
+        status: "unbound",
+        guestName: "",
+        deviceId: "",
+        checkInAt: "",
+        welcomeNote: "",
+        archivedAt: null,
+        archivedBy: null,
+        lastSyncAt: nowIso(),
+        lastUpdatedBy: req.currentUser.name
+      },
+      store.sync.updatedAt
+    );
     pushAudit(store, {
       actorName: req.currentUser.name,
       actorRole: req.currentUser.role,
-      action: `Created new room ${roomNumber}`,
+      action: existing?.archivedAt ? `Restored room ${roomNumber}` : `Created new room ${roomNumber}`,
       entityType: "ROOM",
       entityId: roomNumber,
       tone: "success"
     });
+    await saveStore(store);
+    res.json({ ok: true, room: store.rooms[roomNumber] });
+  })
+);
 
+app.patch(
+  "/api/admin/rooms/:roomNumber",
+  requireRoles([ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.RECEPTIONIST], async (req, res) => {
+    const store = await getStore();
+    const roomNumber = `${req.params.roomNumber || ""}`.trim();
+    const current = store.rooms[roomNumber];
+    if (!current || current.archivedAt) {
+      return res.status(404).json({ error: "Room not found" });
+    }
+    const nextGuestName = req.body.guestName === undefined ? current.guestName : `${req.body.guestName || ""}`.trim();
+    store.rooms[roomNumber] = normalizeRoom(
+      roomNumber,
+      {
+        ...current,
+        floor: `${req.body.floor ?? current.floor ?? ""}`.trim(),
+        guestName: nextGuestName,
+        welcomeNote: `${req.body.welcomeNote ?? current.welcomeNote ?? ""}`.trim(),
+        language: `${req.body.language ?? current.language ?? "English"}`.trim(),
+        status: `${req.body.status || (nextGuestName ? "occupied" : current.deviceId ? "vacant" : "unbound")}`.trim(),
+        checkInAt: nextGuestName ? current.checkInAt || nowIso() : "",
+        lastSyncAt: nowIso(),
+        lastUpdatedBy: req.currentUser.name
+      },
+      store.sync.updatedAt
+    );
+    pushAudit(store, {
+      actorName: req.currentUser.name,
+      actorRole: req.currentUser.role,
+      action: `Updated room ${roomNumber}`,
+      entityType: "ROOM",
+      entityId: roomNumber,
+      tone: "info"
+    });
     await saveStore(store);
     res.json({ ok: true, room: store.rooms[roomNumber] });
   })
 );
 
 app.post(
-  "/api/admin/rooms",
+  "/api/admin/rooms/:roomNumber/checkin",
   requireRoles([ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.RECEPTIONIST], async (req, res) => {
     const store = await getStore();
-    const roomNumber = `${req.body.roomNumber || ""}`.trim();
-    if (!roomNumber) {
-      return res.status(400).json({ error: "roomNumber is required" });
+    const roomNumber = `${req.params.roomNumber || ""}`.trim();
+    const room = store.rooms[roomNumber];
+    if (!room || room.archivedAt) {
+      return res.status(404).json({ error: "Room not found" });
     }
-    const current = store.rooms[roomNumber] || {
+    const guestName = `${req.body.guestName || ""}`.trim();
+    if (!guestName) {
+      return res.status(400).json({ error: "guestName is required" });
+    }
+    store.rooms[roomNumber] = normalizeRoom(
       roomNumber,
-      floor: roomNumber.slice(0, roomNumber.length - 2)
-    };
-    const guestName = `${req.body.guestName ?? current.guestName ?? ""}`.trim();
-    store.rooms[roomNumber] = {
-      ...current,
-      roomNumber,
-      guestName,
-      welcomeNote: `${req.body.welcomeNote ?? current.welcomeNote ?? ""}`.trim(),
-      language: `${req.body.language ?? current.language ?? "English"}`.trim(),
-      status: req.body.status || (guestName ? "occupied" : current.deviceId ? "vacant" : "unbound"),
-      checkInAt: guestName ? current.checkInAt || nowIso() : "",
-      lastSyncAt: nowIso(),
-      lastUpdatedBy: req.currentUser.name
-    };
+      {
+        ...room,
+        guestName,
+        welcomeNote: `${req.body.welcomeNote ?? room.welcomeNote ?? ""}`.trim(),
+        language: `${req.body.language ?? room.language ?? "English"}`.trim(),
+        status: "occupied",
+        checkInAt: room.checkInAt || nowIso(),
+        hasSessionHistory: true,
+        lastSyncAt: nowIso(),
+        lastUpdatedBy: req.currentUser.name
+      },
+      store.sync.updatedAt
+    );
     pushAudit(store, {
       actorName: req.currentUser.name,
       actorRole: req.currentUser.role,
-      action: `Updated guest session for room ${roomNumber}`,
+      action: `Checked in guest to room ${roomNumber}`,
       entityType: "ROOM",
       entityId: roomNumber,
-      tone: "info"
+      tone: "success"
     });
     await saveStore(store);
     res.json({ ok: true, room: store.rooms[roomNumber] });
@@ -1114,18 +1689,23 @@ app.post(
   requireRoles([ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.RECEPTIONIST], async (req, res) => {
     const store = await getStore();
     const room = store.rooms[req.params.roomNumber];
-    if (!room) {
+    if (!room || room.archivedAt) {
       return res.status(404).json({ error: "Room not found" });
     }
-    store.rooms[req.params.roomNumber] = {
-      ...room,
-      guestName: "",
-      welcomeNote: "",
-      checkInAt: "",
-      status: room.deviceId ? "vacant" : "unbound",
-      lastSyncAt: nowIso(),
-      lastUpdatedBy: req.currentUser.name
-    };
+    store.rooms[req.params.roomNumber] = normalizeRoom(
+      req.params.roomNumber,
+      {
+        ...room,
+        guestName: "",
+        welcomeNote: "",
+        checkInAt: "",
+        status: room.deviceId ? "vacant" : "unbound",
+        hasSessionHistory: room.hasSessionHistory || Boolean(room.checkInAt),
+        lastSyncAt: nowIso(),
+        lastUpdatedBy: req.currentUser.name
+      },
+      store.sync.updatedAt
+    );
     pushAudit(store, {
       actorName: req.currentUser.name,
       actorRole: req.currentUser.role,
@@ -1140,20 +1720,64 @@ app.post(
 );
 
 app.post(
+  "/api/admin/rooms/:roomNumber/unbind",
+  requireRoles([ROLES.SUPER_ADMIN, ROLES.ADMIN], async (req, res) => {
+    const store = await getStore();
+    const room = store.rooms[req.params.roomNumber];
+    if (!room || room.archivedAt) {
+      return res.status(404).json({ error: "Room not found" });
+    }
+    const bindings = await findBindingsByRoomNumber(req.params.roomNumber);
+    await Promise.all(
+      bindings.flatMap((binding) => [
+        deleteBindingBySessionToken(binding.sessionToken),
+        deleteDeviceStatusBySessionToken(binding.sessionToken)
+      ])
+    );
+    store.rooms[req.params.roomNumber] = normalizeRoom(
+      req.params.roomNumber,
+      {
+        ...room,
+        deviceId: "",
+        status: room.guestName ? "occupied" : "unbound",
+        hasBindingHistory: room.hasBindingHistory || bindings.length > 0,
+        lastSyncAt: nowIso(),
+        lastUpdatedBy: req.currentUser.name
+      },
+      store.sync.updatedAt
+    );
+    pushAudit(store, {
+      actorName: req.currentUser.name,
+      actorRole: req.currentUser.role,
+      action: `Unbound TV from room ${req.params.roomNumber}`,
+      entityType: "ROOM",
+      entityId: req.params.roomNumber,
+      tone: "warning"
+    });
+    await saveStore(store);
+    res.json({ ok: true, room: store.rooms[req.params.roomNumber] });
+  })
+);
+
+app.post(
   "/api/admin/rooms/:roomNumber/override",
   requireRoles([ROLES.SUPER_ADMIN, ROLES.ADMIN], async (req, res) => {
     const store = await getStore();
     const room = store.rooms[req.params.roomNumber];
-    if (!room) {
+    if (!room || room.archivedAt) {
       return res.status(404).json({ error: "Room not found" });
     }
-    store.rooms[req.params.roomNumber] = {
-      ...room,
-      overrideEnabled: Boolean(req.body.enabled),
-      customContentLabel: `${req.body.customContentLabel || ""}`.trim(),
-      lastSyncAt: nowIso(),
-      lastUpdatedBy: req.currentUser.name
-    };
+    store.rooms[req.params.roomNumber] = normalizeRoom(
+      req.params.roomNumber,
+      {
+        ...room,
+        overrideEnabled: Boolean(req.body.enabled),
+        customContentLabel: `${req.body.customContentLabel || ""}`.trim(),
+        lastSyncAt: nowIso(),
+        lastUpdatedBy: req.currentUser.name
+      },
+      store.sync.updatedAt
+    );
     pushAudit(store, {
       actorName: req.currentUser.name,
       actorRole: req.currentUser.role,
@@ -1164,6 +1788,185 @@ app.post(
     });
     await saveStore(store);
     res.json({ ok: true, room: store.rooms[req.params.roomNumber] });
+  })
+);
+
+app.delete(
+  "/api/admin/rooms/:roomNumber",
+  requireRoles([ROLES.SUPER_ADMIN, ROLES.ADMIN], async (req, res) => {
+    const store = await getStore();
+    const roomNumber = `${req.params.roomNumber || ""}`.trim();
+    const room = store.rooms[roomNumber];
+    if (!room) {
+      return res.status(404).json({ error: "Room not found" });
+    }
+    const activeBindings = await findBindingsByRoomNumber(roomNumber);
+    const requiresArchive =
+      Boolean(room.guestName) ||
+      Boolean(room.deviceId) ||
+      Boolean(room.hasSessionHistory) ||
+      Boolean(room.hasBindingHistory) ||
+      activeBindings.length > 0;
+
+    if (requiresArchive) {
+      await Promise.all(
+        activeBindings.flatMap((binding) => [
+          deleteBindingBySessionToken(binding.sessionToken),
+          deleteDeviceStatusBySessionToken(binding.sessionToken)
+        ])
+      );
+      store.rooms[roomNumber] = normalizeRoom(
+        roomNumber,
+        {
+          ...room,
+          guestName: "",
+          deviceId: "",
+          checkInAt: "",
+          welcomeNote: "",
+          status: "archived",
+          archivedAt: nowIso(),
+          archivedBy: req.currentUser.name,
+          hasSessionHistory: room.hasSessionHistory || Boolean(room.checkInAt),
+          hasBindingHistory: room.hasBindingHistory || activeBindings.length > 0 || Boolean(room.deviceId),
+          lastSyncAt: nowIso(),
+          lastUpdatedBy: req.currentUser.name
+        },
+        store.sync.updatedAt
+      );
+      pushAudit(store, {
+        actorName: req.currentUser.name,
+        actorRole: req.currentUser.role,
+        action: `Archived room ${roomNumber}`,
+        entityType: "ROOM",
+        entityId: roomNumber,
+        tone: "warning"
+      });
+    } else {
+      delete store.rooms[roomNumber];
+      pushAudit(store, {
+        actorName: req.currentUser.name,
+        actorRole: req.currentUser.role,
+        action: `Deleted unused room ${roomNumber}`,
+        entityType: "ROOM",
+        entityId: roomNumber,
+        tone: "warning"
+      });
+    }
+
+    await saveStore(store);
+    res.json({ ok: true, archived: requiresArchive });
+  })
+);
+
+app.get(
+  "/api/admin/menus",
+  requireRoles([ROLES.SUPER_ADMIN, ROLES.ADMIN], async (_, res) => {
+    const store = await getStore();
+    res.json({ meals: activeMeals(store) });
+  })
+);
+
+app.post(
+  "/api/admin/menus/:category/items",
+  requireRoles([ROLES.SUPER_ADMIN, ROLES.ADMIN], async (req, res) => {
+    const category = `${req.params.category || ""}`.trim();
+    if (!MEAL_CATEGORIES.includes(category)) {
+      return res.status(400).json({ error: "Invalid menu category" });
+    }
+    const title = `${req.body.title || ""}`.trim();
+    if (!title) {
+      return res.status(400).json({ error: "title is required" });
+    }
+    const store = await getStore();
+    const item = normalizeMenuItem(category, {
+      ...req.body,
+      id: req.body.id || `${category}-${randomToken(6)}`,
+      updatedAt: nowIso(),
+      archivedAt: null,
+      archivedBy: null
+    });
+    store.meals[category] = [...(store.meals[category] || []), item];
+    pushAudit(store, {
+      actorName: req.currentUser.name,
+      actorRole: req.currentUser.role,
+      action: `Created ${category} menu item ${item.title}`,
+      entityType: "MENU_ITEM",
+      entityId: item.id,
+      tone: "success"
+    });
+    await saveStore(store);
+    res.json({ ok: true, item });
+  })
+);
+
+app.patch(
+  "/api/admin/menus/:category/items/:itemId",
+  requireRoles([ROLES.SUPER_ADMIN, ROLES.ADMIN], async (req, res) => {
+    const category = `${req.params.category || ""}`.trim();
+    if (!MEAL_CATEGORIES.includes(category)) {
+      return res.status(400).json({ error: "Invalid menu category" });
+    }
+    const store = await getStore();
+    const currentItems = store.meals[category] || [];
+    const current = currentItems.find((item) => item.id === req.params.itemId && !item.archivedAt);
+    if (!current) {
+      return res.status(404).json({ error: "Menu item not found" });
+    }
+    const next = normalizeMenuItem(category, {
+      ...current,
+      ...req.body,
+      id: current.id,
+      updatedAt: nowIso(),
+      archivedAt: current.archivedAt,
+      archivedBy: current.archivedBy
+    });
+    store.meals[category] = currentItems.map((item) => (item.id === current.id ? next : item));
+    pushAudit(store, {
+      actorName: req.currentUser.name,
+      actorRole: req.currentUser.role,
+      action: `Updated ${category} menu item ${next.title}`,
+      entityType: "MENU_ITEM",
+      entityId: next.id,
+      tone: "info"
+    });
+    await saveStore(store);
+    res.json({ ok: true, item: next });
+  })
+);
+
+app.delete(
+  "/api/admin/menus/:category/items/:itemId",
+  requireRoles([ROLES.SUPER_ADMIN, ROLES.ADMIN], async (req, res) => {
+    const category = `${req.params.category || ""}`.trim();
+    if (!MEAL_CATEGORIES.includes(category)) {
+      return res.status(400).json({ error: "Invalid menu category" });
+    }
+    const store = await getStore();
+    const currentItems = store.meals[category] || [];
+    const current = currentItems.find((item) => item.id === req.params.itemId && !item.archivedAt);
+    if (!current) {
+      return res.status(404).json({ error: "Menu item not found" });
+    }
+    store.meals[category] = currentItems.map((item) =>
+      item.id === current.id
+        ? normalizeMenuItem(category, {
+            ...item,
+            archivedAt: nowIso(),
+            archivedBy: req.currentUser.name,
+            updatedAt: nowIso()
+          })
+        : item
+    );
+    pushAudit(store, {
+      actorName: req.currentUser.name,
+      actorRole: req.currentUser.role,
+      action: `Archived ${category} menu item ${current.title}`,
+      entityType: "MENU_ITEM",
+      entityId: current.id,
+      tone: "warning"
+    });
+    await saveStore(store);
+    res.json({ ok: true });
   })
 );
 
@@ -1186,17 +1989,25 @@ app.post(
       roomNumber,
       floor: roomNumber.slice(0, roomNumber.length - 2)
     };
-    store.rooms[roomNumber] = {
-      ...current,
+    store.rooms[roomNumber] = normalizeRoom(
       roomNumber,
-      guestName,
-      welcomeNote,
-      status: guestName ? "occupied" : "vacant",
-      deviceId: pendingEntry.deviceId || current.deviceId || `TV-${roomNumber}`,
-      checkInAt: guestName ? nowIso() : current.checkInAt || "",
-      lastSyncAt: nowIso(),
-      lastUpdatedBy: req.currentUser.name
-    };
+      {
+        ...current,
+        roomNumber,
+        guestName,
+        welcomeNote,
+        status: guestName ? "occupied" : "vacant",
+        deviceId: pendingEntry.deviceId || current.deviceId || `TV-${roomNumber}`,
+        checkInAt: guestName ? nowIso() : current.checkInAt || "",
+        lastSyncAt: nowIso(),
+        lastUpdatedBy: req.currentUser.name,
+        hasBindingHistory: true,
+        hasSessionHistory: current.hasSessionHistory || Boolean(guestName),
+        archivedAt: null,
+        archivedBy: null
+      },
+      store.sync.updatedAt
+    );
     const sessionToken = randomToken(16);
     const binding = {
       sessionToken,
@@ -1219,6 +2030,14 @@ app.post(
     });
     await saveStore(store);
     res.json({ ok: true, sessionToken, roomNumber });
+  })
+);
+
+app.get(
+  "/api/admin/assets",
+  requireRoles([ROLES.SUPER_ADMIN, ROLES.ADMIN], async (_, res) => {
+    const store = await getStore();
+    res.json({ assets: buildAssetEntries(store) });
   })
 );
 
@@ -1261,6 +2080,33 @@ app.post(
   })
 );
 
+app.delete(
+  "/api/admin/assets/:assetId",
+  requireRoles([ROLES.SUPER_ADMIN, ROLES.ADMIN], async (req, res) => {
+    const store = await getStore();
+    const asset = buildAssetEntries(store).find((entry) => entry.id === req.params.assetId);
+    if (!asset) {
+      return res.status(404).json({ error: "Asset not found" });
+    }
+    if (asset.kind === "startup") {
+      store.hotel.startupLogoUrl = null;
+    } else {
+      store.backgrounds[asset.bucket] = (store.backgrounds[asset.bucket] || []).filter((url) => url !== asset.url);
+    }
+    bestEffortDeleteLocalAsset(asset.url);
+    pushAudit(store, {
+      actorName: req.currentUser.name,
+      actorRole: req.currentUser.role,
+      action: `Deleted ${asset.kind === "startup" ? "startup" : `${asset.bucket} background`} asset`,
+      entityType: "ASSET",
+      entityId: asset.id,
+      tone: "warning"
+    });
+    await saveStore(store);
+    res.json({ ok: true });
+  })
+);
+
 if (!DISABLE_STATIC_UI) {
   app.get("*", (_, res) => {
     res.sendFile(path.join(PUBLIC_DIR, "index.html"));
@@ -1278,7 +2124,7 @@ async function start() {
     const dbMode = pool ? "postgres" : "file";
     const imageMode = IMAGEKIT_PRIVATE_KEY ? "imagekit" : "local";
     console.log(
-      `Asteria Grand admin panel listening on http://localhost:${PORT} (db=${dbMode}, images=${imageMode})`
+      `Hotel admin panel listening on http://localhost:${PORT} (db=${dbMode}, images=${imageMode})`
     );
   });
 }

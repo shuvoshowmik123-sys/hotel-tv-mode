@@ -5,6 +5,11 @@ import { BentoCard } from "../../../components/BentoCard";
 import { PillButton } from "../../../components/UIElements";
 import { api } from "../../../lib/api";
 
+function configuredValue(value: unknown) {
+    const normalized = `${value ?? ""}`.trim();
+    return normalized || "Not configured";
+}
+
 export default function SettingsPage() {
     const [data, setData] = useState<any>(null);
     const [loading, setLoading] = useState(true);
@@ -39,6 +44,8 @@ export default function SettingsPage() {
     const s = data.settings;
     if (!s) return <div className="p-4 bg-red-50 text-red-600 rounded-xl">You do not have permission to view settings.</div>;
 
+    const environmentLabel = configuredValue(s.subscription.environment);
+
     return (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <BentoCard title="Property Management" eyebrow="Hotel Profile">
@@ -64,30 +71,36 @@ export default function SettingsPage() {
             <div className="space-y-6">
                 <BentoCard title="API and Integration" eyebrow="Connectivity">
                     <div className="mt-4 space-y-4">
-                        <div className="flex justify-between items-center py-3 border-b border-luxury-100">
+                        <div className="flex justify-between items-center py-3 border-b border-luxury-100 gap-4">
                             <span className="text-sm font-bold uppercase tracking-wider text-luxury-800/60">API Key</span>
-                            <span className="font-mono text-sm text-luxury-900 bg-luxury-100 px-3 py-1 rounded-md">{s.integration.apiKeyPreview}</span>
+                            <span className="font-mono text-sm text-luxury-900 bg-luxury-100 px-3 py-1 rounded-md text-right">
+                                {configuredValue(s.integration.apiKeyPreview)}
+                            </span>
                         </div>
-                        <div className="flex justify-between items-center py-3 border-b border-luxury-100">
+                        <div className="flex justify-between items-center py-3 border-b border-luxury-100 gap-4">
                             <span className="text-sm font-bold uppercase tracking-wider text-luxury-800/60">Webhook URL</span>
-                            <span className="font-mono text-xs text-luxury-800/60 truncate max-w-[200px]">{s.integration.webhookUrl}</span>
+                            <span className="font-mono text-xs text-luxury-800/60 truncate max-w-[240px]">
+                                {configuredValue(s.integration.webhookUrl)}
+                            </span>
                         </div>
-                        <div className="flex justify-between items-center py-3">
+                        <div className="flex justify-between items-center py-3 gap-4">
                             <span className="text-sm font-bold uppercase tracking-wider text-luxury-800/60">Environment</span>
-                            <span className="status-pill-occupied px-3 py-1 rounded-full text-xs font-bold tracking-wider uppercase">{s.subscription.environment}</span>
+                            <span className={`px-3 py-1 rounded-full text-xs font-bold tracking-wider uppercase ${environmentLabel === "Not configured" ? "bg-luxury-100 text-luxury-800" : "status-pill-occupied"}`}>
+                                {environmentLabel}
+                            </span>
                         </div>
                     </div>
                 </BentoCard>
 
                 <BentoCard title="Subscription" eyebrow="Deployment Info">
                     <div className="mt-4 space-y-4 text-sm font-medium">
-                        <div className="flex justify-between pt-2">
+                        <div className="flex justify-between pt-2 gap-4">
                             <span className="text-luxury-800/60">Current Plan</span>
-                            <span className="text-luxury-900">{s.subscription.plan}</span>
+                            <span className="text-luxury-900 text-right">{configuredValue(s.subscription.plan)}</span>
                         </div>
-                        <div className="flex justify-between">
+                        <div className="flex justify-between gap-4">
                             <span className="text-luxury-800/60">Renewal Date</span>
-                            <span className="font-mono text-luxury-800">{s.subscription.renewalDate}</span>
+                            <span className="font-mono text-luxury-800 text-right">{configuredValue(s.subscription.renewalDate)}</span>
                         </div>
                     </div>
                 </BentoCard>

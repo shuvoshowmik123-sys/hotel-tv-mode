@@ -66,7 +66,7 @@ export default function DashboardPage() {
     if (!data?.metrics) {
         return (
             <BentoCard>
-                <div style={{ color: "#9a3412" }}>Error loading dashboard. Make sure the unified Asteria Grand app is running on port 3000.</div>
+                <div style={{ color: "#9a3412" }}>Error loading dashboard. Verify the admin panel API is running and reachable.</div>
             </BentoCard>
         );
     }
@@ -85,10 +85,9 @@ export default function DashboardPage() {
         e.preventDefault();
         setQuickMessage("");
         try {
-            await api("/api/admin/rooms", {
+            await api(`/api/admin/rooms/${encodeURIComponent(quickRoomNumber.trim())}/checkin`, {
                 method: "POST",
                 body: JSON.stringify({
-                    roomNumber: quickRoomNumber,
                     guestName: quickGuestName,
                 }),
             });
@@ -150,6 +149,9 @@ export default function DashboardPage() {
                             )}
                             <div className="flex justify-end pt-2">
                                 <PillButton primary type="submit">Check In</PillButton>
+                            </div>
+                            <div className="text-xs text-luxury-800/50">
+                                The room must already exist before reception can start a guest session.
                             </div>
                         </form>
                     </BentoCard>

@@ -31,7 +31,7 @@ export default function AuditPage() {
         const blob = new Blob([csv], { type: "text/csv" });
         const link = document.createElement("a");
         link.href = URL.createObjectURL(blob);
-        link.download = "asteria-audit-log.csv";
+        link.download = "hotel-audit-log.csv";
         link.click();
     };
 

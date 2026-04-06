@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { BentoCard } from "../../../components/BentoCard";
 import { PillButton } from "../../../components/UIElements";
+import { ConfirmModal } from "../../../components/ConfirmModal";
 import { api } from "../../../lib/api";
 
 export default function UsersPage() {
@@ -10,6 +11,8 @@ export default function UsersPage() {
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
     const [editingUser, setEditingUser] = useState<any>(null);
+    const [deleteTarget, setDeleteTarget] = useState<any>(null);
+    const [message, setMessage] = useState("");
 
     const load = async () => {
         try {
@@ -26,23 +29,41 @@ export default function UsersPage() {
 
     const handleSaveUser = async (e: React.FormEvent) => {
         e.preventDefault();
-        const form = Object.fromEntries(new FormData(e.currentTarget as HTMLFormElement));
-        if (form.id) {
-            await api(`/api/admin/users/${form.id}`, { method: "PATCH", body: JSON.stringify(form) });
-        } else {
-            await api("/api/admin/users", { method: "POST", body: JSON.stringify(form) });
+        setMessage("");
+        const rawForm = Object.fromEntries(new FormData(e.currentTarget as HTMLFormElement));
+        const form = Object.fromEntries(
+            Object.entries(rawForm).filter(([, value]) => `${value ?? ""}`.trim() !== "")
+        );
+
+        try {
+            if (form.id) {
+                await api(`/api/admin/users/${form.id}`, { method: "PATCH", body: JSON.stringify(form) });
+                setMessage(`Updated account for ${form.name || editingUser?.name || "user"}.`);
+            } else {
+                await api("/api/admin/users", { method: "POST", body: JSON.stringify(form) });
+                setMessage(`Created account for ${form.name || "user"}.`);
+            }
+            setShowForm(false);
+            setEditingUser(null);
+            await load();
+        } catch (error: any) {
+            setMessage(error.message || "Failed to save user.");
         }
-        setShowForm(false);
-        load();
     };
 
     if (loading) return <div>Loading...</div>;
 
     return (
         <div className="space-y-6 max-w-5xl mx-auto">
+            {message && (
+                <div className={`rounded-2xl px-4 py-3 text-sm ${message.includes("Failed") ? "bg-red-50 text-red-700" : "bg-green-50 text-green-700"}`}>
+                    {message}
+                </div>
+            )}
+
             {showForm && (
                 <BentoCard title={editingUser ? "Edit Account" : "Create Account"} eyebrow="User Form">
-                    <form onSubmit={handleSaveUser} className="space-y-4 mt-4">
+                    <form key={editingUser?.id || "new-user"} onSubmit={handleSaveUser} className="space-y-4 mt-4">
                         <input type="hidden" name="id" value={editingUser?.id || ""} />
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
@@ -74,7 +95,7 @@ export default function UsersPage() {
                             </div>
                         </div>
                         <div className="flex justify-end gap-3 pt-4">
-                            <PillButton type="button" onClick={() => setShowForm(false)}>Cancel</PillButton>
+                            <PillButton type="button" onClick={() => { setShowForm(false); setEditingUser(null); }}>Cancel</PillButton>
                             <PillButton primary type="submit">{editingUser ? "Update Account" : "Create Account"}</PillButton>
                         </div>
                     </form>
@@ -103,7 +124,7 @@ export default function UsersPage() {
                         </thead>
                         <tbody>
                             {data.users?.length === 0 && (
-                                <tr><td colSpan={5} className="py-4 text-center text-luxury-800/50">You do not have permission or no users found.</td></tr>
+                                <tr><td colSpan={5} className="py-4 text-center text-luxury-800/50">No active users found.</td></tr>
                             )}
                             {data.users?.map((u: any) => (
                                 <tr key={u.id} className="border-b border-luxury-100 last:border-0 hover:bg-luxury-50/50 transition-colors">
@@ -115,10 +136,13 @@ export default function UsersPage() {
                                         </span>
                                     </td>
                                     <td className="py-4 text-[10px] font-bold uppercase tracking-wide">
-                                        {u.status === "ACTIVE" ? <span className="text-green-600">Active</span> : <span className="text-red-500">Disabled</span>}
+                                        {u.status === "ACTIVE" ? <span className="text-green-600">Active</span> : <span className="text-red-500">{u.status}</span>}
                                     </td>
                                     <td className="py-4 text-right">
-                                        <PillButton className="!py-1.5 !px-4 !text-xs" onClick={() => { setEditingUser(u); setShowForm(true); }}>Edit</PillButton>
+                                        <div className="flex justify-end gap-2">
+                                            <PillButton className="!py-1.5 !px-4 !text-xs" onClick={() => { setEditingUser(u); setShowForm(true); }}>Edit</PillButton>
+                                            <PillButton className="!py-1.5 !px-4 !text-xs" onClick={() => setDeleteTarget(u)}>Delete</PillButton>
+                                        </div>
                                     </td>
                                 </tr>
                             ))}
@@ -126,6 +150,30 @@ export default function UsersPage() {
                     </table>
                 </div>
             </BentoCard>
+
+            <ConfirmModal
+                open={Boolean(deleteTarget)}
+                title="Archive User"
+                description={deleteTarget ? `Archive the account for ${deleteTarget.name}? Archived users can no longer sign in.` : ""}
+                confirmLabel="Archive User"
+                onCancel={() => setDeleteTarget(null)}
+                onConfirm={async () => {
+                    if (!deleteTarget) return;
+                    try {
+                        await api(`/api/admin/users/${deleteTarget.id}`, { method: "DELETE" });
+                        setMessage(`Archived account for ${deleteTarget.name}.`);
+                        setDeleteTarget(null);
+                        if (editingUser?.id === deleteTarget.id) {
+                            setEditingUser(null);
+                            setShowForm(false);
+                        }
+                        await load();
+                    } catch (error: any) {
+                        setMessage(error.message || "Failed to archive user.");
+                        setDeleteTarget(null);
+                    }
+                }}
+            />
         </div>
     );
 }

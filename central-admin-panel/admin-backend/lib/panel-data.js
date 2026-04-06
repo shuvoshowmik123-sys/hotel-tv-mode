@@ -1,5 +1,7 @@
 const crypto = require("crypto");
 
+const MEAL_CATEGORIES = ["breakfast", "lunch", "dinner", "beverages"];
+
 function nowIso() {
   return new Date().toISOString();
 }
@@ -10,201 +12,119 @@ function randomId(size = 8) {
 
 function defaultProperty() {
   return {
-    id: "asteria-grand-main",
-    name: "Asteria Grand",
-    address: "12 Riverside Avenue, Dhaka",
-    timezone: "Asia/Dhaka",
-    accentColor: "#C9A84C",
-    environment: "Production",
-    apiKeyPreview: "ag_live_****_panel"
+    id: `${process.env.PROPERTY_ID || "primary"}`.trim(),
+    name: `${process.env.DEFAULT_PROPERTY_NAME || ""}`.trim(),
+    address: `${process.env.DEFAULT_PROPERTY_ADDRESS || ""}`.trim(),
+    timezone: `${process.env.DEFAULT_PROPERTY_TIMEZONE || "Asia/Dhaka"}`.trim(),
+    accentColor: `${process.env.DEFAULT_ACCENT_COLOR || "#C9A84C"}`.trim(),
+    environment:
+      `${process.env.VERCEL_ENV || process.env.NODE_ENV || "development"}`
+        .trim()
+        .replace(/^./, (value) => value.toUpperCase()),
+    apiKeyPreview: `${process.env.PANEL_API_KEY_PREVIEW || ""}`.trim()
   };
 }
 
-function buildDefaultRooms() {
+function emptyHotelBranding() {
+  return {
+    hotelName: "",
+    shortBrand: "",
+    tagline: "",
+    location: "",
+    supportPhone: "",
+    startupLogoUrl: null,
+    checkoutLabel: "Checkout",
+    billLabel: "Current bill",
+    billValue: "",
+    loadingMessage: "Preparing your room experience"
+  };
+}
+
+function emptyPopupConfig() {
+  return {
+    helpTitle: "",
+    ratingText: "",
+    callHint: "",
+    callNumber: ""
+  };
+}
+
+function normalizeRoom(roomNumber, source = {}, fallbackSyncTime = nowIso()) {
+  const trimmedRoom = `${roomNumber || source.roomNumber || ""}`.trim();
+  const guestName = `${source.guestName || ""}`.trim();
+  const deviceId = `${source.deviceId || ""}`.trim();
+  const archivedAt = source.archivedAt || null;
+  const archivedBy = source.archivedBy || null;
+  const hasSessionHistory = Boolean(source.hasSessionHistory || guestName || source.checkInAt);
+  const hasBindingHistory = Boolean(source.hasBindingHistory || deviceId);
+  const status = archivedAt
+    ? "archived"
+    : `${source.status || (guestName ? "occupied" : deviceId ? "vacant" : "unbound")}`.trim();
+
+  return {
+    roomNumber: trimmedRoom,
+    floor: `${source.floor || trimmedRoom.slice(0, Math.max(1, trimmedRoom.length - 2))}`.trim(),
+    status,
+    guestName,
+    deviceId,
+    lastSyncAt: source.lastSyncAt || fallbackSyncTime,
+    checkInAt: guestName ? source.checkInAt || fallbackSyncTime : source.checkInAt || "",
+    welcomeNote: `${source.welcomeNote || ""}`.trim(),
+    language: `${source.language || "English"}`.trim(),
+    overrideEnabled: Boolean(source.overrideEnabled),
+    customContentLabel: `${source.customContentLabel || ""}`.trim(),
+    lastUpdatedBy: `${source.lastUpdatedBy || ""}`.trim(),
+    archivedAt,
+    archivedBy,
+    hasSessionHistory,
+    hasBindingHistory,
+    createdAt: source.createdAt || fallbackSyncTime
+  };
+}
+
+function normalizeMenuItem(category, item = {}) {
+  return {
+    id: `${item.id || `${category}-${randomId(6)}`}`.trim(),
+    title: `${item.title || ""}`.trim(),
+    subtitle: `${item.subtitle || ""}`.trim(),
+    description: `${item.description || ""}`.trim(),
+    price: `${item.price || ""}`.trim(),
+    available: item.available !== false,
+    badge: `${item.badge || ""}`.trim(),
+    accentColor: `${item.accentColor || "#C9A84C"}`.trim(),
+    updatedAt: item.updatedAt || nowIso(),
+    archivedAt: item.archivedAt || null,
+    archivedBy: item.archivedBy || null
+  };
+}
+
+function normalizeMealCollection(source = {}) {
   const result = {};
-  const roomSeeds = [
-    ["1201", "vacant", ""],
-    ["1202", "occupied", "Mr. Karim"],
-    ["1203", "occupied", "Ms. Sen"],
-    ["1204", "unbound", ""],
-    ["1205", "vacant", ""],
-    ["1206", "occupied", "Mr. Rahman"],
-    ["1207", "vacant", ""],
-    ["1208", "occupied", "Mrs. Noor"],
-    ["1301", "vacant", ""],
-    ["1302", "occupied", "Mr. Hasan"],
-    ["1303", "vacant", ""],
-    ["1304", "unbound", ""],
-    ["1305", "occupied", "Ms. Khatun"],
-    ["1306", "vacant", ""],
-    ["1307", "vacant", ""],
-    ["1308", "occupied", "Mr. Imran"]
-  ];
-
-  roomSeeds.forEach(([roomNumber, status, guestName]) => {
-    result[roomNumber] = {
-      roomNumber,
-      floor: roomNumber.slice(0, roomNumber.length - 2),
-      status,
-      guestName,
-      deviceId: status === "unbound" ? "" : `TV-${roomNumber}`,
-      lastSyncAt: nowIso(),
-      checkInAt: guestName ? nowIso() : "",
-      welcomeNote: guestName ? "Welcome to Asteria Grand" : "",
-      language: "English",
-      overrideEnabled: false,
-      customContentLabel: "",
-      lastUpdatedBy: guestName ? "System" : ""
-    };
+  MEAL_CATEGORIES.forEach((category) => {
+    result[category] = Array.isArray(source[category])
+      ? source[category].map((item) => normalizeMenuItem(category, item))
+      : [];
   });
-
   return result;
 }
 
 function createDefaultStore() {
   return {
     property: defaultProperty(),
-    hotel: {
-      hotelName: "Asteria Grand",
-      shortBrand: "AG",
-      tagline: "A premium guest-room experience across every screen",
-      location: "Dhaka",
-      supportPhone: "+880 1234 567890",
-      startupLogoUrl: null,
-      checkoutLabel: "Checkout 12:00 PM",
-      billLabel: "Total bill till now",
-      billValue: "Pending sync",
-      loadingMessage: "Preparing the Asteria Grand experience"
-    },
+    hotel: emptyHotelBranding(),
     weather: {
-      temperatureC: 28,
-      condition: "Clear"
+      temperatureC: 0,
+      condition: ""
     },
-    popup: {
-      helpTitle: "Need assistance?",
-      ratingText: "4.8/5 guest rating",
-      callHint: "If you want you can call this number",
-      callNumber: "+880 1234 567890"
-    },
+    popup: emptyPopupConfig(),
     backgrounds: {
       home: [],
       roomService: [],
       foodMenu: [],
       inputs: []
     },
-    meals: {
-      breakfast: [
-        {
-          id: "breakfast_tray",
-          title: "Suite Breakfast Tray",
-          subtitle: "Delivered to your room",
-          description: "Coffee, bakery, fruit, and made-to-order eggs served for your stay.",
-          badge: "AM",
-          accentColor: "#D49B4A",
-          price: "450 BDT",
-          available: true
-        },
-        {
-          id: "breakfast_lobby",
-          title: "Lobby Breakfast",
-          subtitle: "Restaurant seating available",
-          description: "Light buffet and local breakfast favorites are being highlighted this morning.",
-          badge: "DIN",
-          accentColor: "#C88A3A",
-          price: "520 BDT",
-          available: true
-        }
-      ],
-      lunch: [
-        {
-          id: "lunch_pool",
-          title: "Poolside Lunch",
-          subtitle: "Fresh midday menu",
-          description: "Flatbreads, grilled favorites, and cold drinks are available from the terrace.",
-          badge: "SUN",
-          accentColor: "#CD8540",
-          price: "690 BDT",
-          available: true
-        }
-      ],
-      dinner: [
-        {
-          id: "dinner_grill",
-          title: "Rooftop Grill",
-          subtitle: "Open this evening",
-          description: "Grill selections and chef plates are highlighted for tonight.",
-          badge: "PM",
-          accentColor: "#D08E44",
-          price: "990 BDT",
-          available: true
-        }
-      ],
-      beverages: [
-        {
-          id: "beverage_signature",
-          title: "Signature Mocktail",
-          subtitle: "Served chilled",
-          description: "House-crafted seasonal mocktail with citrus and mint.",
-          badge: "BAR",
-          accentColor: "#9D7E3F",
-          price: "390 BDT",
-          available: true
-        }
-      ]
-    },
-    sections: {
-      services: {
-        id: "services",
-        title: "Room Service and Concierge",
-        subtitle: "Core hotel services ready from this TV",
-        style: "COMPACT",
-        enabled: true,
-        cards: [
-          {
-            id: "service_housekeeping",
-            title: "Housekeeping",
-            subtitle: "Freshen up your room",
-            description: "Request towels, bedding, or a quick room refresh from the front desk.",
-            badge: "CLN",
-            accentColor: "#2E8B86"
-          }
-        ]
-      },
-      entertainment: {
-        id: "entertainment",
-        title: "Entertainment Available on TV",
-        subtitle: "Apps and channels curated for this room",
-        style: "STANDARD",
-        enabled: true,
-        cards: [
-          {
-            id: "entertainment_inputs",
-            title: "External Devices",
-            subtitle: "HDMI, Dish, USB and more",
-            description: "Every detected TV source is grouped into the Inputs page for guests.",
-            badge: "IN",
-            accentColor: "#6B5AC9"
-          }
-        ]
-      },
-      foodMenu: {
-        id: "food_menu",
-        title: "Food Menu",
-        subtitle: "Hotel dining experiences and handoff app entry",
-        style: "STANDARD",
-        enabled: true,
-        cards: [
-          {
-            id: "food_breakfast",
-            title: "Breakfast Service",
-            subtitle: "Morning dining",
-            description: "Warm breakfast service with in-room delivery and restaurant pickup choices.",
-            badge: "AM",
-            accentColor: "#D49B4A"
-          }
-        ]
-      }
-    },
+    meals: normalizeMealCollection(),
+    sections: {},
     visibility: {
       destinations: {
         home: true,
@@ -212,44 +132,14 @@ function createDefaultStore() {
         foodMenu: true,
         inputs: true
       },
-      visibleAppPackages: ["com.netflix.ninja", "com.google.android.youtube.tv"],
-      visibleSourceTitles: ["HDMI 1", "HDMI 2", "DTV", "ATV"]
+      visibleAppPackages: [],
+      visibleSourceTitles: []
     },
-    availableApps: [
-      { id: "netflix", packageName: "com.netflix.ninja", name: "Netflix", description: "Streaming and premium series" },
-      { id: "youtube", packageName: "com.google.android.youtube.tv", name: "YouTube", description: "Video and music content" },
-      { id: "prime", packageName: "com.amazon.amazonvideo.livingroom", name: "Prime Video", description: "Movies and originals" },
-      { id: "browser", packageName: "com.android.browser", name: "Browser", description: "Web browsing for guests" }
-    ],
-    availableInputs: [
-      { id: "hdmi1", title: "HDMI 1", description: "Console or STB input" },
-      { id: "hdmi2", title: "HDMI 2", description: "Guest device input" },
-      { id: "dtv", title: "DTV", description: "Digital TV channel source" },
-      { id: "atv", title: "ATV", description: "Analog TV source" },
-      { id: "usb", title: "USB Media", description: "USB playback source" }
-    ],
-    rooms: buildDefaultRooms(),
-    auditLogs: [
-      {
-        id: randomId(),
-        actorName: "System",
-        actorRole: "SYSTEM",
-        action: "Asteria Grand control plane is online",
-        entityType: "SYSTEM",
-        entityId: "bootstrap",
-        tone: "info",
-        createdAt: nowIso()
-      }
-    ],
-    notifications: [
-      {
-        id: randomId(),
-        label: "System",
-        tone: "info",
-        message: "Asteria Grand control plane is online",
-        createdAt: nowIso()
-      }
-    ],
+    availableApps: [],
+    availableInputs: [],
+    rooms: {},
+    auditLogs: [],
+    notifications: [],
     sync: {
       version: 1,
       ttlSeconds: 300,
@@ -260,60 +150,47 @@ function createDefaultStore() {
 
 function normalizeStore(source = {}) {
   const defaults = createDefaultStore();
+  const sync = { ...defaults.sync, ...(source.sync || {}) };
   const store = {
     ...defaults,
     ...source,
     property: { ...defaults.property, ...(source.property || {}) },
     hotel: { ...defaults.hotel, ...(source.hotel || {}) },
-    weather: { ...defaults.weather, ...(source.weather || {}) },
+    weather: {
+      temperatureC: Number(source.weather?.temperatureC ?? defaults.weather.temperatureC),
+      condition: `${source.weather?.condition ?? defaults.weather.condition}`.trim()
+    },
     popup: { ...defaults.popup, ...(source.popup || {}) },
-    backgrounds: { ...defaults.backgrounds, ...(source.backgrounds || {}) },
-    meals: { ...defaults.meals, ...(source.meals || {}) },
-    sections: { ...defaults.sections, ...(source.sections || {}) },
+    backgrounds: {
+      ...defaults.backgrounds,
+      ...(source.backgrounds || {})
+    },
+    meals: normalizeMealCollection(source.meals || defaults.meals),
+    sections: source.sections && typeof source.sections === "object" ? source.sections : {},
     visibility: {
       ...defaults.visibility,
       ...(source.visibility || {}),
       destinations: {
         ...defaults.visibility.destinations,
         ...((source.visibility && source.visibility.destinations) || {})
-      }
+      },
+      visibleAppPackages: Array.isArray(source.visibility?.visibleAppPackages)
+        ? source.visibility.visibleAppPackages.filter(Boolean)
+        : [],
+      visibleSourceTitles: Array.isArray(source.visibility?.visibleSourceTitles)
+        ? source.visibility.visibleSourceTitles.filter(Boolean)
+        : []
     },
-    availableApps: source.availableApps || defaults.availableApps,
-    availableInputs: source.availableInputs || defaults.availableInputs,
-    rooms: { ...defaults.rooms, ...(source.rooms || {}) },
-    auditLogs: Array.isArray(source.auditLogs) ? source.auditLogs : defaults.auditLogs,
-    notifications: Array.isArray(source.notifications) ? source.notifications : defaults.notifications,
-    sync: { ...defaults.sync, ...(source.sync || {}) }
+    availableApps: Array.isArray(source.availableApps) ? source.availableApps : [],
+    availableInputs: Array.isArray(source.availableInputs) ? source.availableInputs : [],
+    rooms: {},
+    auditLogs: Array.isArray(source.auditLogs) ? source.auditLogs : [],
+    notifications: Array.isArray(source.notifications) ? source.notifications : [],
+    sync
   };
 
-  if (store.hotel.hotelName === "Hotel Vision Grand") {
-    store.hotel.hotelName = "Asteria Grand";
-  }
-  if (store.hotel.shortBrand === "HV") {
-    store.hotel.shortBrand = "AG";
-  }
-  if (store.hotel.tagline === "Comfort and entertainment for every stay") {
-    store.hotel.tagline = defaults.hotel.tagline;
-  }
-  if (store.hotel.loadingMessage === "Preparing your room experience") {
-    store.hotel.loadingMessage = defaults.hotel.loadingMessage;
-  }
-
-  Object.entries(store.rooms).forEach(([roomNumber, room]) => {
-    store.rooms[roomNumber] = {
-      roomNumber,
-      floor: room.floor || roomNumber.slice(0, roomNumber.length - 2),
-      status: room.status || (room.guestName ? "occupied" : room.deviceId ? "vacant" : "unbound"),
-      guestName: room.guestName || "",
-      deviceId: room.deviceId || "",
-      lastSyncAt: room.lastSyncAt || store.sync.updatedAt,
-      checkInAt: room.checkInAt || (room.guestName ? store.sync.updatedAt : ""),
-      welcomeNote: room.welcomeNote || "",
-      language: room.language || "English",
-      overrideEnabled: Boolean(room.overrideEnabled),
-      customContentLabel: room.customContentLabel || "",
-      lastUpdatedBy: room.lastUpdatedBy || ""
-    };
+  Object.entries(source.rooms || {}).forEach(([roomNumber, room]) => {
+    store.rooms[roomNumber] = normalizeRoom(roomNumber, room, store.sync.updatedAt);
   });
 
   return store;
@@ -322,8 +199,8 @@ function normalizeStore(source = {}) {
 function pushAudit(store, payload) {
   const entry = {
     id: randomId(),
-    actorName: payload.actorName,
-    actorRole: payload.actorRole,
+    actorName: payload.actorName || "System",
+    actorRole: payload.actorRole || "SYSTEM",
     action: payload.action,
     entityType: payload.entityType || "SYSTEM",
     entityId: payload.entityId || "",
@@ -334,31 +211,35 @@ function pushAudit(store, payload) {
   store.notifications = [
     {
       id: randomId(),
-      label: payload.actorRole === "SYSTEM" ? "System" : payload.actorRole.replaceAll("_", " "),
-      tone: payload.tone || "info",
-      message: payload.action,
+      label: entry.actorRole === "SYSTEM" ? "System" : entry.actorRole.replaceAll("_", " "),
+      tone: entry.tone,
+      message: entry.action,
       createdAt: entry.createdAt
     },
     ...(store.notifications || [])
   ].slice(0, 20);
 }
 
-function buildWorkflowSteps() {
+function buildWorkflowSteps(metrics = {}) {
   return [
-    { id: "activation", label: "Device activation generated", status: "done" },
-    { id: "binding", label: "Reception binds device to room", status: "done" },
-    { id: "guest", label: "Guest name assigned to session", status: "pending" },
-    { id: "content", label: "Launcher content pushed", status: "pending" },
-    { id: "sync", label: "TV confirms live sync", status: "pending" }
+    { id: "activation", label: "Device activation requested", status: metrics.pendingBindings > 0 ? "done" : "pending" },
+    { id: "binding", label: "Room and TV successfully bound", status: metrics.onlineTvs > 0 ? "done" : "pending" },
+    { id: "guest", label: "Guest session active", status: metrics.occupiedRooms > 0 ? "done" : "pending" },
+    { id: "content", label: "Content published to launcher", status: metrics.syncVersion > 1 ? "done" : "pending" },
+    { id: "sync", label: "TV confirmed live sync", status: metrics.onlineTvs > 0 ? "done" : "pending" }
   ];
 }
 
 module.exports = {
+  MEAL_CATEGORIES,
   nowIso,
   randomId,
   defaultProperty,
   createDefaultStore,
   normalizeStore,
+  normalizeRoom,
+  normalizeMealCollection,
+  normalizeMenuItem,
   pushAudit,
   buildWorkflowSteps
 };
