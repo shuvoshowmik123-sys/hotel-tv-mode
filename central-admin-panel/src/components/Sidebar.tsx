@@ -68,11 +68,11 @@ export function Sidebar({ user }: { user: any }) {
                     animate={{ y: [0, -3, 0] }}
                     transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
                 >
-                    AG
+                    CP
                 </motion.div>
                 <div>
                     <h2 className="font-bold leading-tight" style={{ color: "#292620", fontSize: 15 }}>
-                        Asteria Grand
+                        Hotel Operations
                     </h2>
                     <div style={{ fontSize: 11, color: "rgba(62,59,51,0.5)", fontWeight: 600, letterSpacing: "0.04em" }}>
                         Central Admin Panel

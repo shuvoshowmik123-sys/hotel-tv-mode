@@ -39,16 +39,16 @@ export default function LoginPage() {
                 <BentoCard className="!p-8">
                     <div className="flex justify-center mb-6">
                         <div className="w-16 h-16 rounded-2xl bg-gold-500 text-white flex items-center justify-center font-bold text-3xl shadow-md">
-                            AG
+                            CP
                         </div>
                     </div>
 
                     <div className="text-center mb-8">
                         <div className="text-[10px] font-bold uppercase tracking-widest text-luxury-800/50 mb-2">
-                            Private Operations Portal
+                            Hotel Operations Portal
                         </div>
                         <h1 className="text-2xl font-bold text-luxury-900 tracking-tight">
-                            Asteria Grand Central Admin Panel
+                            Central Admin Panel
                         </h1>
                         <p className="text-sm text-luxury-800/60 mt-3 font-medium">
                             Sign in to manage rooms, guest sessions, content, and launcher operations.
@@ -89,14 +89,6 @@ export default function LoginPage() {
                             </PillButton>
                         </div>
 
-                        <div className="text-center text-xs text-luxury-800/50 pt-4 cursor-pointer hover:text-luxury-800"
-                            onClick={() => {
-                                setEmail("superadmin@asteriagrand.local");
-                                setPassword("Asteria@2026!");
-                            }}
-                        >
-                            Demo: superadmin@asteriagrand.local / Asteria@2026!
-                        </div>
                     </form>
                 </BentoCard>
             </div>

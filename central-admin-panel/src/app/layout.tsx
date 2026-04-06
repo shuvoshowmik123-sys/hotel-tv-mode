@@ -15,8 +15,8 @@ const dmMono = DM_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Asteria Grand Central Admin Panel",
-  description: "Private Operations Portal — Asteria Grand",
+  title: "Central Admin Panel",
+  description: "Hotel operations portal",
 };
 
 export default function RootLayout({

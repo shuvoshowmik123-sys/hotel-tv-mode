@@ -1,182 +1,70 @@
 {
-  "hotel": {
-    "hotelName": "Hotel Vision Grand",
-    "shortBrand": "HV",
-    "tagline": "Comfort and entertainment for every stay",
-    "location": "Dhaka",
-    "supportPhone": "+880 1234 567890",
-    "startupLogoUrl": null,
-    "checkoutLabel": "Checkout 12:00 PM",
-    "billLabel": "Total bill till now",
-    "billValue": "Pending sync",
-    "loadingMessage": "Preparing your room experience"
-  },
-  "weather": {
-    "temperatureC": 28,
-    "condition": "Clear"
-  },
-  "popup": {
-    "ratingText": "4.8/5 guest rating",
-    "callHint": "If you want you can call this number",
-    "callNumber": "+880 1234 567890"
-  },
-  "backgrounds": {
-    "home": [],
-    "roomService": [],
-    "foodMenu": [],
-    "inputs": []
-  },
-  "meals": {
-    "breakfast": [
-      {
-        "id": "breakfast_tray",
-        "title": "Suite Breakfast Tray",
-        "subtitle": "Delivered to your room",
-        "description": "Coffee, bakery, fruit, and made-to-order eggs served for your stay.",
-        "badge": "AM",
-        "accentColor": "#D49B4A",
-        "price": "450 BDT"
-      },
-      {
-        "id": "breakfast_lobby",
-        "title": "Lobby Breakfast",
-        "subtitle": "Restaurant seating available",
-        "description": "Light buffet and local breakfast favorites are being highlighted this morning.",
-        "badge": "DIN",
-        "accentColor": "#C88A3A",
-        "price": "520 BDT"
-      }
-    ],
-    "lunch": [
-      {
-        "id": "lunch_pool",
-        "title": "Poolside Lunch",
-        "subtitle": "Fresh midday menu",
-        "description": "Flatbreads, grilled favorites, and cold drinks are available from the terrace.",
-        "badge": "SUN",
-        "accentColor": "#CD8540",
-        "price": "690 BDT"
-      },
-      {
-        "id": "lunch_business",
-        "title": "Executive Lunch",
-        "subtitle": "Fast and polished",
-        "description": "Business lunch plates and lighter options are ready for quick dining.",
-        "badge": "LUN",
-        "accentColor": "#B96F33",
-        "price": "760 BDT"
-      }
-    ],
-    "dinner": [
-      {
-        "id": "dinner_grill",
-        "title": "Rooftop Grill",
-        "subtitle": "Open this evening",
-        "description": "Grill selections and chef plates are highlighted for tonight.",
-        "badge": "PM",
-        "accentColor": "#D08E44",
-        "price": "990 BDT"
-      },
-      {
-        "id": "dinner_room",
-        "title": "Dinner to Your Room",
-        "subtitle": "Quiet service",
-        "description": "Room service delivery is available for dinner and late-evening requests.",
-        "badge": "DIN",
-        "accentColor": "#8F5E2D",
-        "price": "1180 BDT"
-      }
-    ]
-  },
-  "sections": {
-    "services": {
-      "id": "services",
-      "title": "Room Service and Concierge",
-      "subtitle": "Core hotel services ready from this TV",
-      "style": "COMPACT",
-      "enabled": true,
-      "cards": [
-        {
-          "id": "service_housekeeping",
-          "title": "Housekeeping",
-          "subtitle": "Freshen up your room",
-          "description": "Request towels, bedding, or a quick room refresh from the front desk.",
-          "badge": "CLN",
-          "accentColor": "#2E8B86"
-        },
-        {
-          "id": "service_transport",
-          "title": "Transport Desk",
-          "subtitle": "Airport and city transfers",
-          "description": "Reserve pickup windows, hotel vehicles, or late-night transport assistance.",
-          "badge": "DRV",
-          "accentColor": "#3A7FA4"
-        }
-      ]
+  "store": {
+    "property": {
+      "id": "primary",
+      "name": "",
+      "address": "",
+      "timezone": "",
+      "environment": "",
+      "apiKeyPreview": ""
     },
-    "entertainment": {
-      "id": "entertainment",
-      "title": "Entertainment Available on TV",
-      "subtitle": "Apps and channels curated for this room",
-      "style": "STANDARD",
-      "enabled": true,
-      "cards": [
-        {
-          "id": "entertainment_live",
-          "title": "Live TV Tonight",
-          "subtitle": "News, sports, and hotel channels",
-          "description": "Switch quickly into the TV tuner or hotel lineup from the Inputs tab.",
-          "badge": "TV",
-          "accentColor": "#BC8538"
-        },
-        {
-          "id": "entertainment_inputs",
-          "title": "External Devices",
-          "subtitle": "HDMI, Dish, USB and more",
-          "description": "Every detected TV source is grouped into the new Inputs page for guests.",
-          "badge": "IN",
-          "accentColor": "#6B5AC9"
-        }
-      ]
+    "hotel": {
+      "hotelName": "",
+      "shortBrand": "",
+      "tagline": "",
+      "location": "",
+      "supportPhone": "",
+      "startupLogoUrl": null,
+      "checkoutLabel": "",
+      "billLabel": "",
+      "billValue": "",
+      "loadingMessage": ""
     },
-    "foodMenu": {
-      "id": "food_menu",
-      "title": "Food Menu",
-      "subtitle": "Hotel dining experiences and handoff app entry",
-      "style": "STANDARD",
-      "enabled": true,
-      "cards": [
-        {
-          "id": "food_breakfast",
-          "title": "Breakfast Service",
-          "subtitle": "Morning dining",
-          "description": "Warm breakfast service with in-room delivery and restaurant pickup choices.",
-          "badge": "AM",
-          "accentColor": "#D49B4A"
-        }
-      ]
+    "weather": {
+      "temperatureC": null,
+      "condition": ""
+    },
+    "popup": {
+      "helpTitle": "",
+      "ratingText": "",
+      "callHint": "",
+      "callNumber": ""
+    },
+    "backgrounds": {
+      "home": [],
+      "roomService": [],
+      "foodMenu": [],
+      "inputs": []
+    },
+    "meals": {
+      "breakfast": [],
+      "lunch": [],
+      "dinner": [],
+      "beverages": []
+    },
+    "sections": {},
+    "visibility": {
+      "destinations": {
+        "home": true,
+        "roomService": true,
+        "foodMenu": true,
+        "inputs": true
+      },
+      "visibleAppPackages": [],
+      "visibleSourceTitles": []
+    },
+    "availableApps": [],
+    "availableInputs": [],
+    "notifications": [],
+    "auditLogs": [],
+    "rooms": {},
+    "sync": {
+      "version": 1,
+      "ttlSeconds": 300,
+      "updatedAt": null
     }
   },
-  "visibility": {
-    "destinations": {
-      "home": true,
-      "roomService": true,
-      "foodMenu": true,
-      "inputs": true
-    },
-    "visibleAppPackages": [],
-    "visibleSourceTitles": []
-  },
-  "rooms": {
-    "1206": {
-      "roomNumber": "1206",
-      "guestName": "Mr. Rahman"
-    }
-  },
-  "bindings": {},
   "pendingActivations": {},
-  "sync": {
-    "version": 1,
-    "ttlSeconds": 300
-  }
+  "bindings": {},
+  "deviceStatuses": {}
 }
