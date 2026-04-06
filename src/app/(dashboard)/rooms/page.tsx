@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { BentoCard } from "../../../components/BentoCard";
 import { PillButton, StatusPill } from "../../../components/UIElements";
 import { ConfirmModal } from "../../../components/ConfirmModal";
@@ -30,6 +30,8 @@ export default function RoomsPage() {
     const [newClimateControl, setNewClimateControl] = useState<string>(CLIMATE_CONTROL_OPTIONS[0]);
     const [newRoomError, setNewRoomError] = useState("");
     const [message, setMessage] = useState("");
+    const [inventorySearch, setInventorySearch] = useState("");
+    const router = useRouter();
     const searchParams = useSearchParams();
 
     const load = async () => {
@@ -50,6 +52,10 @@ export default function RoomsPage() {
     useEffect(() => { load(); }, []);
 
     const query = (searchParams?.get("room") || "").trim().toLowerCase();
+    useEffect(() => {
+        setInventorySearch(searchParams?.get("room") || "");
+    }, [searchParams]);
+
     const rooms = useMemo(
         () =>
             data?.rooms
@@ -59,6 +65,20 @@ export default function RoomsPage() {
                 : [],
         [data?.rooms, query]
     );
+
+    const floors = useMemo(() => {
+        const grouped = new Map<string, any[]>();
+        rooms.forEach((room: any) => {
+            const floorKey = `${room.floor || "Unassigned"}`;
+            if (!grouped.has(floorKey)) {
+                grouped.set(floorKey, []);
+            }
+            grouped.get(floorKey)?.push(room);
+        });
+        return Array.from(grouped.entries()).sort((a, b) =>
+            a[0].localeCompare(b[0], undefined, { numeric: true })
+        );
+    }, [rooms]);
 
     const selectedRoom: any = rooms.find((room: any) => room.roomNumber === selectedRoomId) || null;
     const currentRole = data?.currentUser?.role;
@@ -100,7 +120,7 @@ export default function RoomsPage() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <BentoCard
                     title="Room Inventory"
-                    eyebrow="Room Status Overview"
+                    eyebrow="Floor View and Room Status Overview"
                     actions={
                         canCreateRooms && (
                             <PillButton primary onClick={() => {
@@ -116,34 +136,104 @@ export default function RoomsPage() {
                         )
                     }
                 >
-                    <div className="flex flex-wrap gap-3 mt-4">
+                    <div className="mt-4 mb-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                        <div className="max-w-xl text-sm text-luxury-800/60">
+                            Search by room number, then browse the inventory floor by floor. Each room tile now shows its room category and climate type at a glance.
+                        </div>
+                        <div className="relative w-full lg:w-72">
+                            <input
+                                type="text"
+                                value={inventorySearch}
+                                onChange={(event) => {
+                                    const nextValue = event.target.value;
+                                    setInventorySearch(nextValue);
+                                    const params = new URLSearchParams(searchParams?.toString() || "");
+                                    if (nextValue.trim()) {
+                                        params.set("room", nextValue.trim());
+                                    } else {
+                                        params.delete("room");
+                                    }
+                                    const nextQuery = params.toString();
+                                    router.replace(nextQuery ? `/rooms?${nextQuery}` : "/rooms");
+                                }}
+                                placeholder="Search room number..."
+                                className="field-input !rounded-full !py-2.5 pl-10 pr-4 w-full shadow-sm"
+                            />
+                            <svg
+                                className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 opacity-40"
+                                xmlns="http://www.w3.org/2000/svg"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                            >
+                                <circle cx="11" cy="11" r="8" />
+                                <path d="m21 21-4.3-4.3" />
+                            </svg>
+                        </div>
+                    </div>
+
+                    <div className="space-y-5">
                         {rooms.length === 0 && (
                             <div className="w-full min-h-[160px] flex items-center justify-center rounded-xl border-2 border-dashed border-luxury-200 text-sm font-medium text-luxury-800/50">
                                 No rooms created yet.
                             </div>
                         )}
-                        {rooms.map((room: any) => {
-                            const isSelected = room.roomNumber === selectedRoomId;
-                            const bgClass = isSelected ? "bg-gold-500 text-white border-gold-600" : "bg-white border-luxury-200 hover:border-gold-400";
-                            return (
-                                <button
-                                    key={room.roomNumber}
-                                    onClick={() => setSelectedRoomId(room.roomNumber)}
-                                    className={`w-24 h-24 rounded-[16px] border flex flex-col items-center justify-center transition-all shadow-sm ${bgClass}`}
-                                >
-                                    <span className="font-mono font-bold text-lg">{room.roomNumber}</span>
-                                    <span className={`text-[10px] font-medium tracking-wider uppercase ${isSelected ? "text-white/80" : "text-luxury-800/50"}`}>
-                                        {room.status}
-                                    </span>
-                                    <span className={`text-[10px] mt-1 ${isSelected ? "text-white/80" : "text-luxury-800/40"}`}>
-                                        {roomCategoryBadge(room.roomCategory)}
-                                    </span>
-                                    <span className={`text-[10px] ${isSelected ? "text-white/75" : "text-luxury-800/35"}`}>
-                                        {climateControlBadge(room.climateControl)}
-                                    </span>
-                                </button>
-                            );
-                        })}
+                        {floors.map(([floor, floorRooms]) => (
+                            <div
+                                key={floor}
+                                className="rounded-[24px] border border-luxury-200 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,245,238,0.92))] p-4 shadow-[0_16px_44px_-34px_rgba(0,0,0,0.18)]"
+                            >
+                                <div className="flex items-center justify-between gap-4 mb-4">
+                                    <div>
+                                        <div className="text-[11px] font-bold uppercase tracking-[0.24em] text-luxury-800/45">Floor</div>
+                                        <div className="text-2xl font-semibold text-luxury-900">{floor}</div>
+                                    </div>
+                                    <div className="rounded-full bg-gold-500/10 text-gold-700 px-3 py-1 text-[11px] font-bold uppercase tracking-wider">
+                                        {floorRooms.length} room{floorRooms.length === 1 ? "" : "s"}
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
+                                    {floorRooms.map((room: any) => {
+                                        const isSelected = room.roomNumber === selectedRoomId;
+                                        const bgClass = isSelected
+                                            ? "bg-gradient-to-br from-gold-500 to-gold-600 text-white border-gold-600 shadow-[0_18px_40px_-24px_rgba(171,139,57,0.8)]"
+                                            : "bg-white/90 border-luxury-200 hover:border-gold-400 hover:shadow-[0_18px_36px_-30px_rgba(201,168,76,0.65)]";
+                                        return (
+                                            <button
+                                                key={room.roomNumber}
+                                                onClick={() => setSelectedRoomId(room.roomNumber)}
+                                                className={`rounded-[18px] border p-4 min-h-[138px] flex flex-col items-start justify-between text-left transition-all ${bgClass}`}
+                                            >
+                                                <div className="flex w-full items-start justify-between gap-3">
+                                                    <div>
+                                                        <span className="font-mono font-bold text-xl">{room.roomNumber}</span>
+                                                        <div className={`mt-1 text-[10px] font-medium tracking-wider uppercase ${isSelected ? "text-white/80" : "text-luxury-800/50"}`}>
+                                                            {room.status}
+                                                        </div>
+                                                    </div>
+                                                    <StatusPill status={roomStatusTone(room.status)} label={room.status || "unknown"} />
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <div className={`text-xs font-semibold ${isSelected ? "text-white" : "text-luxury-900"}`}>
+                                                        {roomCategoryBadge(room.roomCategory)}
+                                                    </div>
+                                                    <div className={`text-[11px] ${isSelected ? "text-white/80" : "text-luxury-800/50"}`}>
+                                                        {climateControlBadge(room.climateControl)}
+                                                    </div>
+                                                    <div className={`text-[11px] ${isSelected ? "text-white/75" : "text-luxury-800/40"}`}>
+                                                        {room.guestName || room.deviceId || "No guest / no TV"}
+                                                    </div>
+                                                </div>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 </BentoCard>
 

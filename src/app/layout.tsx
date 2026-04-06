@@ -17,6 +17,11 @@ const dmMono = DM_Mono({
 export const metadata: Metadata = {
   title: "Central Admin Panel",
   description: "Hotel operations portal",
+  icons: {
+    icon: "/favicon.svg",
+    shortcut: "/favicon.svg",
+    apple: "/favicon.svg",
+  },
 };
 
 export default function RootLayout({

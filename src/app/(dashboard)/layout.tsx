@@ -23,6 +23,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     const [panelMeta, setPanelMeta] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [notificationsOpen, setNotificationsOpen] = useState(false);
+    const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
     const router = useRouter();
     const pathname = usePathname();
 
@@ -37,6 +38,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             console.error(error);
         }
     }
+
+    useEffect(() => {
+        const saved = window.localStorage.getItem("cp-sidebar-collapsed");
+        if (saved === "1") {
+            setSidebarCollapsed(true);
+        }
+    }, []);
 
     useEffect(() => {
         async function fetchUser() {
@@ -71,6 +79,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     const handleLogout = async () => {
         await api("/api/auth/logout", { method: "POST" });
         router.push("/login");
+    };
+
+    const toggleSidebar = () => {
+        setSidebarCollapsed((current) => {
+            const next = !current;
+            window.localStorage.setItem("cp-sidebar-collapsed", next ? "1" : "0");
+            return next;
+        });
     };
 
     if (loading) {
@@ -113,8 +129,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
     return (
         <div className="flex min-h-screen" style={{ background: "#FAFAF8" }}>
-            <Sidebar user={user} />
-            <div className="flex-1 ml-64 flex flex-col min-h-screen" style={{ maxWidth: "calc(100vw - 16rem)" }}>
+            <Sidebar user={user} collapsed={sidebarCollapsed} onToggleCollapse={toggleSidebar} />
+            <div
+                className="flex-1 flex flex-col min-h-screen transition-[margin,max-width] duration-300"
+                style={{
+                    marginLeft: sidebarCollapsed ? "5.5rem" : "16rem",
+                    maxWidth: sidebarCollapsed ? "calc(100vw - 5.5rem)" : "calc(100vw - 16rem)"
+                }}
+            >
                 <Topbar
                     title={currentTitle}
                     syncLabel={relativeSyncLabel(panelMeta?.systemHealth?.lastPushTime)}

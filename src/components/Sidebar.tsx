@@ -35,7 +35,15 @@ const NAV_GROUPS = [
     },
 ];
 
-export function Sidebar({ user }: { user: any }) {
+export function Sidebar({
+    user,
+    collapsed = false,
+    onToggleCollapse,
+}: {
+    user: any;
+    collapsed?: boolean;
+    onToggleCollapse?: () => void;
+}) {
     const pathname = usePathname();
     const allowedRoutes = new Set(getAllowedRoutes(user?.role));
 
@@ -46,8 +54,11 @@ export function Sidebar({ user }: { user: any }) {
 
     return (
         <motion.aside
-            className="w-64 bg-white h-screen fixed left-0 top-0 flex flex-col py-6 px-4 shrink-0 overflow-y-auto z-20"
+            className="bg-white h-screen fixed left-0 top-0 flex flex-col py-6 shrink-0 overflow-y-auto z-20 transition-[width,padding] duration-300"
             style={{
+                width: collapsed ? "5.5rem" : "16rem",
+                paddingLeft: collapsed ? "0.875rem" : "1rem",
+                paddingRight: collapsed ? "0.875rem" : "1rem",
                 borderRight: "1px solid rgba(229,225,216,0.6)",
                 boxShadow: "4px 0 24px rgb(0 0 0 / 0.03)",
             }}
@@ -57,27 +68,31 @@ export function Sidebar({ user }: { user: any }) {
         >
             {/* Brand */}
             <motion.div
-                className="flex items-center gap-3 mb-8 px-2"
+                className={`mb-8 px-2 ${collapsed ? "flex justify-center" : "flex items-center gap-3"}`}
                 initial={{ opacity: 0, y: -8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.15, duration: 0.4 }}
             >
                 <motion.div
-                    className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-lg text-white"
+                    className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-lg text-white cursor-pointer"
                     style={{ background: "linear-gradient(135deg, #E6C56E 0%, #C9A84C 60%, #AB8B39 100%)", boxShadow: "0 4px 12px rgb(201 168 76 / 0.4)" }}
                     animate={{ y: [0, -3, 0] }}
                     transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                    onClick={onToggleCollapse}
+                    title={collapsed ? "Expand menu" : "Collapse menu"}
                 >
                     CP
                 </motion.div>
-                <div>
-                    <h2 className="font-bold leading-tight" style={{ color: "#292620", fontSize: 15 }}>
-                        Hotel Operations
-                    </h2>
-                    <div style={{ fontSize: 11, color: "rgba(62,59,51,0.5)", fontWeight: 600, letterSpacing: "0.04em" }}>
-                        Central Admin Panel
+                {!collapsed && (
+                    <div>
+                        <h2 className="font-bold leading-tight" style={{ color: "#292620", fontSize: 15 }}>
+                            Hotel Operations
+                        </h2>
+                        <div style={{ fontSize: 11, color: "rgba(62,59,51,0.5)", fontWeight: 600, letterSpacing: "0.04em" }}>
+                            Central Admin Panel
+                        </div>
                     </div>
-                </div>
+                )}
             </motion.div>
 
             {/* Nav Groups */}
@@ -85,12 +100,12 @@ export function Sidebar({ user }: { user: any }) {
                 {allowedGroups.map((group, gIdx) => (
                     <div key={group.label}>
                         <motion.div
-                            className="bento-card-eyebrow mb-2 px-3"
+                            className={`bento-card-eyebrow mb-2 ${collapsed ? "text-center px-0" : "px-3"}`}
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             transition={{ delay: 0.2 + gIdx * 0.06 }}
                         >
-                            {group.label}
+                            {collapsed ? group.label.slice(0, 1) : group.label}
                         </motion.div>
                         <div className="space-y-0.5">
                             {group.routes.map((r, rIdx) => {
@@ -105,11 +120,12 @@ export function Sidebar({ user }: { user: any }) {
                                     >
                                         <Link
                                             href={r.path}
-                                            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors relative"
+                                            className={`flex items-center rounded-xl text-sm font-medium transition-colors relative ${collapsed ? "justify-center px-2 py-3" : "gap-3 px-3 py-2.5"}`}
                                             style={{
                                                 color: isActive ? "#C9A84C" : "rgba(62,59,51,0.75)",
                                                 background: isActive ? "rgba(201,168,76,0.08)" : "transparent",
                                             }}
+                                            title={r.label}
                                         >
                                             {isActive && (
                                                 <motion.span
@@ -123,7 +139,7 @@ export function Sidebar({ user }: { user: any }) {
                                                 name={r.id}
                                                 className={isActive ? "text-gold-500" : "opacity-40"}
                                             />
-                                            <span style={{ position: "relative" }}>{r.label}</span>
+                                            {!collapsed && <span style={{ position: "relative" }}>{r.label}</span>}
                                         </Link>
                                     </motion.div>
                                 );
@@ -135,7 +151,7 @@ export function Sidebar({ user }: { user: any }) {
 
             {/* Footer */}
             <motion.div
-                className="pt-5 mt-5 px-2 flex items-center gap-3"
+                className={`pt-5 mt-5 px-2 ${collapsed ? "flex justify-center" : "flex items-center gap-3"}`}
                 style={{ borderTop: "1px solid rgba(229,225,216,0.7)" }}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -147,14 +163,16 @@ export function Sidebar({ user }: { user: any }) {
                 >
                     {user?.name?.slice(0, 1) || "A"}
                 </div>
-                <div className="flex-1 min-w-0">
-                    <div className="text-sm font-semibold truncate" style={{ color: "#292620" }}>
-                        {user?.name || "Account"}
+                {!collapsed && (
+                    <div className="flex-1 min-w-0">
+                        <div className="text-sm font-semibold truncate" style={{ color: "#292620" }}>
+                            {user?.name || "Account"}
+                        </div>
+                        <div style={{ fontSize: 10, color: "rgba(62,59,51,0.5)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                            {user?.role?.replace("_", " ")}
+                        </div>
                     </div>
-                    <div style={{ fontSize: 10, color: "rgba(62,59,51,0.5)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em" }}>
-                        {user?.role?.replace("_", " ")}
-                    </div>
-                </div>
+                )}
             </motion.div>
         </motion.aside>
     );
