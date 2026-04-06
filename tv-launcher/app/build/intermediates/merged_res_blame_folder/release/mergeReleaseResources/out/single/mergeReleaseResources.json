@@ -1,0 +1,14 @@
+[
+    {
+        "merged": "com.hotelvision.launcher.app-release-75:/font_outfit_variable.ttf.flat",
+        "source": "com.hotelvision.launcher.app-main-79:/font/outfit_variable.ttf"
+    },
+    {
+        "merged": "com.hotelvision.launcher.app-release-75:/drawable_ic_banner.xml.flat",
+        "source": "com.hotelvision.launcher.app-main-79:/drawable/ic_banner.xml"
+    },
+    {
+        "merged": "com.hotelvision.launcher.app-release-75:/font_outfit.xml.flat",
+        "source": "com.hotelvision.launcher.app-main-79:/font/outfit.xml"
+    }
+]

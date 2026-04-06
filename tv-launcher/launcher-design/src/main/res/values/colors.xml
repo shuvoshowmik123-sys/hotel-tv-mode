@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Google TV Quick Settings Panel Colors -->
+    <color name="gtv_quick_settings_panel_background">#FF1E232C</color>
+    <color name="gtv_quick_settings_scrim">#66000000</color>
+    <color name="gtv_quick_settings_panel_border">#26FFFFFF</color>
+    
+    <!-- Google TV Tile Focus Colors -->
+    <color name="gtv_quick_settings_tile_focused">#FFE8F0FE</color>
+    <color name="gtv_quick_settings_tile_focused_text">#FF14181C</color>
+    <color name="gtv_quick_settings_tile_background">#0DFFFFFF</color>
+    
+    <!-- Text Colors -->
+    <color name="gtv_quick_settings_text_primary">#FFFFFFFF</color>
+    <color name="gtv_quick_settings_text_secondary">#FFB7C2CE</color>
+    
+    <!-- Icon Container Colors -->
+    <color name="gtv_quick_settings_panel_icon_container">#1AFFFFFF</color>
+    <color name="gtv_quick_settings_panel_icon_container_focused">#FF14181C</color>
+    
+    <!-- Item Backgrounds -->
+    <color name="gtv_quick_settings_panel_item_background">#14000000</color>
+    <color name="gtv_quick_settings_panel_item_primary_background">#1FFFFFFF</color>
+    <color name="gtv_quick_settings_panel_highlight">#FFF1F4F8</color>
+    <color name="gtv_quick_settings_panel_highlight_content">#FF14181C</color>
+
+    <!-- Context Menu Colors -->
+    <color name="gtv_context_menu_background">#FF1F232B</color>
+    <color name="gtv_context_menu_focus_fill">#FFF2F5F8</color>
+    <color name="gtv_context_menu_focus_content">#FF181C21</color>
+    <color name="gtv_context_menu_divider">#14FFFFFF</color>
+</resources>

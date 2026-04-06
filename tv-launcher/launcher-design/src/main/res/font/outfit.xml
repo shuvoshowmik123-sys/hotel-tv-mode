@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Bundled font declaration for Outfit (Google Sans substitute).
+    Uses the locally bundled TTF file for 100% offline reliability.
+    Outfit: geometric humanist, same design DNA as Google Sans (rounded, modern).
+-->
+<font-family xmlns:android="http://schemas.android.com/apk/res/android">
+    <font
+        android:fontStyle="normal"
+        android:fontWeight="400"
+        android:font="@font/outfit_variable" />
+    <font
+        android:fontStyle="normal"
+        android:fontWeight="500"
+        android:font="@font/outfit_variable" />
+    <font
+        android:fontStyle="normal"
+        android:fontWeight="600"
+        android:font="@font/outfit_variable" />
+    <font
+        android:fontStyle="normal"
+        android:fontWeight="700"
+        android:font="@font/outfit_variable" />
+</font-family>

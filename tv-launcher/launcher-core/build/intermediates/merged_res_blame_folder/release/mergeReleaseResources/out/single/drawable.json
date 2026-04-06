@@ -1,0 +1,22 @@
+[
+    {
+        "merged": "com.hotelvision.launcher.core.launcher-core-release-35:/drawable/notification_tile_bg.xml",
+        "source": "com.hotelvision.launcher.core.launcher-core-core-1.13.1-1:/drawable/notification_tile_bg.xml"
+    },
+    {
+        "merged": "com.hotelvision.launcher.core.launcher-core-release-35:/drawable/notification_bg_low.xml",
+        "source": "com.hotelvision.launcher.core.launcher-core-core-1.13.1-1:/drawable/notification_bg_low.xml"
+    },
+    {
+        "merged": "com.hotelvision.launcher.core.launcher-core-release-35:/drawable/notification_bg.xml",
+        "source": "com.hotelvision.launcher.core.launcher-core-core-1.13.1-1:/drawable/notification_bg.xml"
+    },
+    {
+        "merged": "com.hotelvision.launcher.core.launcher-core-release-35:/drawable/notification_icon_background.xml",
+        "source": "com.hotelvision.launcher.core.launcher-core-core-1.13.1-1:/drawable/notification_icon_background.xml"
+    },
+    {
+        "merged": "com.hotelvision.launcher.core.launcher-core-release-35:/drawable/abc_vector_test.xml",
+        "source": "com.hotelvision.launcher.core.launcher-core-jetified-appcompat-resources-1.7.0-11:/drawable/abc_vector_test.xml"
+    }
+]

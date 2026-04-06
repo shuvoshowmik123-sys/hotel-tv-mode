@@ -1,0 +1,264 @@
+{
+    "logs": [
+        {
+            "outputFile": "com.hotelvision.launcher.design.launcher-design-mergeReleaseResources-2:/values/values.xml",
+            "map": [
+                {
+                    "source": "C:\\Users\\U I S\\.gradle\\caches\\8.9\\transforms\\8a48b1d3fd6c2f4b58446abed45ffad1\\transformed\\jetified-core-splashscreen-1.0.1\\res\\values\\values.xml",
+                    "from": {
+                        "startLines": "2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,21,23,32,45",
+                        "startColumns": "4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4",
+                        "startOffsets": "55,115,174,243,315,378,450,524,600,676,753,824,893,964,1032,1113,1205,1298,1407,1528,1988,2763",
+                        "endLines": "2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,20,22,31,44,48",
+                        "endColumns": "59,58,68,71,62,71,73,75,75,76,70,68,70,67,80,91,92,12,12,12,12,12",
+                        "endOffsets": "110,169,238,310,373,445,519,595,671,748,819,888,959,1027,1108,1200,1293,1402,1523,1983,2758,3031"
+                    },
+                    "to": {
+                        "startLines": "22,23,24,25,26,27,62,63,64,65,66,67,68,69,77,78,79,80,82,96,105,118",
+                        "startColumns": "4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4",
+                        "startOffsets": "1073,1133,1192,1261,1333,1396,3749,3823,3899,3975,4052,4123,4192,4263,4813,4894,4986,5079,5188,6100,6560,7335",
+                        "endLines": "22,23,24,25,26,27,62,63,64,65,66,67,68,69,77,78,79,81,83,104,117,121",
+                        "endColumns": "59,58,68,71,62,71,73,75,75,76,70,68,70,67,80,91,92,12,12,12,12,12",
+                        "endOffsets": "1128,1187,1256,1328,1391,1463,3818,3894,3970,4047,4118,4187,4258,4326,4889,4981,5074,5183,5304,6555,7330,7603"
+                    }
+                },
+                {
+                    "source": "E:\\hotel mode ui launcher\\tv-launcher\\launcher-design\\src\\main\\res\\values\\integers.xml",
+                    "from": {
+                        "startLines": "7,8,9,10,4,3",
+                        "startColumns": "4,4,4,4,4,4",
+                        "startOffsets": "431,498,566,632,234,154",
+                        "endColumns": "66,67,65,66,79,79",
+                        "endOffsets": "493,561,627,694,309,229"
+                    },
+                    "to": {
+                        "startLines": "70,71,72,73,74,75",
+                        "startColumns": "4,4,4,4,4,4",
+                        "startOffsets": "4331,4398,4466,4532,4599,4679",
+                        "endColumns": "66,67,65,66,79,79",
+                        "endOffsets": "4393,4461,4527,4594,4674,4754"
+                    }
+                },
+                {
+                    "source": "E:\\hotel mode ui launcher\\tv-launcher\\launcher-design\\src\\main\\res\\values\\themes.xml",
+                    "from": {
+                        "startLines": "2,11",
+                        "startColumns": "4,4",
+                        "startOffsets": "56,610",
+                        "endLines": "9,14",
+                        "endColumns": "12,12",
+                        "endOffsets": "602,848"
+                    },
+                    "to": {
+                        "startLines": "84,92",
+                        "startColumns": "4,4",
+                        "startOffsets": "5309,5857",
+                        "endLines": "91,95",
+                        "endColumns": "12,12",
+                        "endOffsets": "5852,6095"
+                    }
+                },
+                {
+                    "source": "E:\\hotel mode ui launcher\\tv-launcher\\launcher-design\\src\\main\\res\\values\\colors.xml",
+                    "from": {
+                        "startLines": "27,30,29,28,3,5,23,24,17,18,21,22,4,13,14,10,8,9",
+                        "startColumns": "4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4",
+                        "startOffsets": "1314,1509,1442,1378,106,239,1130,1201,773,849,968,1045,178,595,663,494,353,421",
+                        "endColumns": "63,60,66,63,71,67,70,78,75,83,76,84,60,67,69,70,67,72",
+                        "endOffsets": "1373,1565,1504,1437,173,302,1196,1275,844,928,1040,1125,234,658,728,560,416,489"
+                    },
+                    "to": {
+                        "startLines": "28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45",
+                        "startColumns": "4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4",
+                        "startOffsets": "1468,1532,1593,1660,1724,1796,1864,1935,2014,2090,2174,2251,2336,2397,2465,2535,2606,2674",
+                        "endColumns": "63,60,66,63,71,67,70,78,75,83,76,84,60,67,69,70,67,72",
+                        "endOffsets": "1527,1588,1655,1719,1791,1859,1930,2009,2085,2169,2246,2331,2392,2460,2530,2601,2669,2742"
+                    }
+                },
+                {
+                    "source": "E:\\hotel mode ui launcher\\tv-launcher\\launcher-design\\src\\main\\res\\values\\dimens.xml",
+                    "from": {
+                        "startLines": "21,22,20,19,17,18,5,6,4,11,10,14,3,13,12,7",
+                        "startColumns": "4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4",
+                        "startOffsets": "1119,1181,1061,1005,895,950,253,325,194,592,530,796,138,726,657,395",
+                        "endColumns": "61,69,57,55,54,54,71,69,58,64,61,60,55,69,68,61",
+                        "endOffsets": "1176,1246,1114,1056,945,1000,320,390,248,652,587,852,189,791,721,452"
+                    },
+                    "to": {
+                        "startLines": "46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61",
+                        "startColumns": "4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4",
+                        "startOffsets": "2747,2809,2879,2937,2993,3048,3103,3175,3245,3304,3369,3431,3492,3548,3618,3687",
+                        "endColumns": "61,69,57,55,54,54,71,69,58,64,61,60,55,69,68,61",
+                        "endOffsets": "2804,2874,2932,2988,3043,3098,3170,3240,3299,3364,3426,3487,3543,3613,3682,3744"
+                    }
+                },
+                {
+                    "source": "E:\\hotel mode ui launcher\\tv-launcher\\launcher-design\\src\\main\\res\\values\\font_certs.xml",
+                    "from": {
+                        "startLines": "7,13,23",
+                        "startColumns": "4,4,4",
+                        "startOffsets": "270,516,954",
+                        "endLines": "10,20,30",
+                        "endColumns": "12,19,19",
+                        "endOffsets": "470,909,1381"
+                    },
+                    "to": {
+                        "startLines": "2,6,14",
+                        "startColumns": "4,4,4",
+                        "startOffsets": "55,257,648",
+                        "endLines": "5,13,21",
+                        "endColumns": "12,19,19",
+                        "endOffsets": "252,643,1068"
+                    }
+                },
+                {
+                    "source": "E:\\hotel mode ui launcher\\tv-launcher\\launcher-design\\src\\main\\res\\values\\strings.xml",
+                    "from": {
+                        "startLines": "2",
+                        "startColumns": "4",
+                        "startOffsets": "56",
+                        "endColumns": "53",
+                        "endOffsets": "105"
+                    },
+                    "to": {
+                        "startLines": "76",
+                        "startColumns": "4",
+                        "startOffsets": "4759",
+                        "endColumns": "53",
+                        "endOffsets": "4808"
+                    }
+                }
+            ]
+        },
+        {
+            "outputFile": "com.hotelvision.launcher.design.launcher-design-release-4:/values/values.xml",
+            "map": [
+                {
+                    "source": "C:\\Users\\U I S\\.gradle\\caches\\8.9\\transforms\\8a48b1d3fd6c2f4b58446abed45ffad1\\transformed\\jetified-core-splashscreen-1.0.1\\res\\values\\values.xml",
+                    "from": {
+                        "startLines": "2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,21,23,32,45",
+                        "startColumns": "4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4",
+                        "startOffsets": "55,115,174,243,315,378,450,524,600,676,753,824,893,964,1032,1113,1205,1298,1407,1528,1988,2763",
+                        "endLines": "2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,20,22,31,44,48",
+                        "endColumns": "59,58,68,71,62,71,73,75,75,76,70,68,70,67,80,91,92,12,12,12,12,12",
+                        "endOffsets": "110,169,238,310,373,445,519,595,671,748,819,888,959,1027,1108,1200,1293,1402,1523,1983,2758,3031"
+                    },
+                    "to": {
+                        "startLines": "22,23,24,25,26,27,62,63,64,65,66,67,68,69,77,78,79,80,82,96,105,118",
+                        "startColumns": "4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4",
+                        "startOffsets": "1073,1133,1192,1261,1333,1396,3749,3823,3899,3975,4052,4123,4192,4263,4813,4894,4986,5079,5188,6100,6560,7335",
+                        "endLines": "22,23,24,25,26,27,62,63,64,65,66,67,68,69,77,78,79,81,83,104,117,121",
+                        "endColumns": "59,58,68,71,62,71,73,75,75,76,70,68,70,67,80,91,92,12,12,12,12,12",
+                        "endOffsets": "1128,1187,1256,1328,1391,1463,3818,3894,3970,4047,4118,4187,4258,4326,4889,4981,5074,5183,5304,6555,7330,7603"
+                    }
+                },
+                {
+                    "source": "E:\\hotel mode ui launcher\\tv-launcher\\launcher-design\\src\\main\\res\\values\\integers.xml",
+                    "from": {
+                        "startLines": "7,8,9,10,4,3",
+                        "startColumns": "4,4,4,4,4,4",
+                        "startOffsets": "431,498,566,632,234,154",
+                        "endColumns": "66,67,65,66,79,79",
+                        "endOffsets": "493,561,627,694,309,229"
+                    },
+                    "to": {
+                        "startLines": "70,71,72,73,74,75",
+                        "startColumns": "4,4,4,4,4,4",
+                        "startOffsets": "4331,4398,4466,4532,4599,4679",
+                        "endColumns": "66,67,65,66,79,79",
+                        "endOffsets": "4393,4461,4527,4594,4674,4754"
+                    }
+                },
+                {
+                    "source": "E:\\hotel mode ui launcher\\tv-launcher\\launcher-design\\src\\main\\res\\values\\themes.xml",
+                    "from": {
+                        "startLines": "2,11",
+                        "startColumns": "4,4",
+                        "startOffsets": "56,610",
+                        "endLines": "9,14",
+                        "endColumns": "12,12",
+                        "endOffsets": "602,848"
+                    },
+                    "to": {
+                        "startLines": "84,92",
+                        "startColumns": "4,4",
+                        "startOffsets": "5309,5857",
+                        "endLines": "91,95",
+                        "endColumns": "12,12",
+                        "endOffsets": "5852,6095"
+                    }
+                },
+                {
+                    "source": "E:\\hotel mode ui launcher\\tv-launcher\\launcher-design\\src\\main\\res\\values\\colors.xml",
+                    "from": {
+                        "startLines": "27,30,29,28,3,5,23,24,17,18,21,22,4,13,14,10,8,9",
+                        "startColumns": "4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4",
+                        "startOffsets": "1314,1509,1442,1378,106,239,1130,1201,773,849,968,1045,178,595,663,494,353,421",
+                        "endColumns": "63,60,66,63,71,67,70,78,75,83,76,84,60,67,69,70,67,72",
+                        "endOffsets": "1373,1565,1504,1437,173,302,1196,1275,844,928,1040,1125,234,658,728,560,416,489"
+                    },
+                    "to": {
+                        "startLines": "28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45",
+                        "startColumns": "4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4",
+                        "startOffsets": "1468,1532,1593,1660,1724,1796,1864,1935,2014,2090,2174,2251,2336,2397,2465,2535,2606,2674",
+                        "endColumns": "63,60,66,63,71,67,70,78,75,83,76,84,60,67,69,70,67,72",
+                        "endOffsets": "1527,1588,1655,1719,1791,1859,1930,2009,2085,2169,2246,2331,2392,2460,2530,2601,2669,2742"
+                    }
+                },
+                {
+                    "source": "E:\\hotel mode ui launcher\\tv-launcher\\launcher-design\\src\\main\\res\\values\\dimens.xml",
+                    "from": {
+                        "startLines": "21,22,20,19,17,18,5,6,4,11,10,14,3,13,12,7",
+                        "startColumns": "4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4",
+                        "startOffsets": "1119,1181,1061,1005,895,950,253,325,194,592,530,796,138,726,657,395",
+                        "endColumns": "61,69,57,55,54,54,71,69,58,64,61,60,55,69,68,61",
+                        "endOffsets": "1176,1246,1114,1056,945,1000,320,390,248,652,587,852,189,791,721,452"
+                    },
+                    "to": {
+                        "startLines": "46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61",
+                        "startColumns": "4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4",
+                        "startOffsets": "2747,2809,2879,2937,2993,3048,3103,3175,3245,3304,3369,3431,3492,3548,3618,3687",
+                        "endColumns": "61,69,57,55,54,54,71,69,58,64,61,60,55,69,68,61",
+                        "endOffsets": "2804,2874,2932,2988,3043,3098,3170,3240,3299,3364,3426,3487,3543,3613,3682,3744"
+                    }
+                },
+                {
+                    "source": "E:\\hotel mode ui launcher\\tv-launcher\\launcher-design\\src\\main\\res\\values\\font_certs.xml",
+                    "from": {
+                        "startLines": "7,13,23",
+                        "startColumns": "4,4,4",
+                        "startOffsets": "270,516,954",
+                        "endLines": "10,20,30",
+                        "endColumns": "12,19,19",
+                        "endOffsets": "470,909,1381"
+                    },
+                    "to": {
+                        "startLines": "2,6,14",
+                        "startColumns": "4,4,4",
+                        "startOffsets": "55,257,648",
+                        "endLines": "5,13,21",
+                        "endColumns": "12,19,19",
+                        "endOffsets": "252,643,1068"
+                    }
+                },
+                {
+                    "source": "E:\\hotel mode ui launcher\\tv-launcher\\launcher-design\\src\\main\\res\\values\\strings.xml",
+                    "from": {
+                        "startLines": "2",
+                        "startColumns": "4",
+                        "startOffsets": "56",
+                        "endColumns": "53",
+                        "endOffsets": "105"
+                    },
+                    "to": {
+                        "startLines": "76",
+                        "startColumns": "4",
+                        "startOffsets": "4759",
+                        "endColumns": "53",
+                        "endOffsets": "4808"
+                    }
+                }
+            ]
+        }
+    ]
+}

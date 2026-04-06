@@ -1,0 +1,79 @@
+com.hotelvision.launcher.app-jetified-room-ktx-2.6.1-0 C:\Users\U I S\.gradle\caches\8.9\transforms\00a9f41a538f26e9ad2646387a271c30\transformed\jetified-room-ktx-2.6.1\res
+com.hotelvision.launcher.app-jetified-ui-util-release-1 C:\Users\U I S\.gradle\caches\8.9\transforms\05fa9c94cf84e76b3137de44c4f0d9f2\transformed\jetified-ui-util-release\res
+com.hotelvision.launcher.app-jetified-activity-compose-1.9.1-2 C:\Users\U I S\.gradle\caches\8.9\transforms\06c80838c16fa52b2f49c7de5e988e2b\transformed\jetified-activity-compose-1.9.1\res
+com.hotelvision.launcher.app-jetified-material-icons-core-release-3 C:\Users\U I S\.gradle\caches\8.9\transforms\086ad26fb75e6424febda570ca5c46f0\transformed\jetified-material-icons-core-release\res
+com.hotelvision.launcher.app-jetified-hilt-navigation-compose-1.2.0-4 C:\Users\U I S\.gradle\caches\8.9\transforms\0b32ad101b7a2dd29a34a2f0b4b1a381\transformed\jetified-hilt-navigation-compose-1.2.0\res
+com.hotelvision.launcher.app-jetified-material-ripple-release-5 C:\Users\U I S\.gradle\caches\8.9\transforms\0f1548ad4157f063ca00481478b4fb31\transformed\jetified-material-ripple-release\res
+com.hotelvision.launcher.app-jetified-material-icons-extended-release-6 C:\Users\U I S\.gradle\caches\8.9\transforms\10414e1e7666eb7ba096de4fd322b78f\transformed\jetified-material-icons-extended-release\res
+com.hotelvision.launcher.app-jetified-lifecycle-process-2.8.7-7 C:\Users\U I S\.gradle\caches\8.9\transforms\10b29c16a50121942ba5b39544f719eb\transformed\jetified-lifecycle-process-2.8.7\res
+com.hotelvision.launcher.app-jetified-foundation-release-8 C:\Users\U I S\.gradle\caches\8.9\transforms\15ce492b431cba84a065ca54af08998d\transformed\jetified-foundation-release\res
+com.hotelvision.launcher.app-jetified-ui-unit-release-9 C:\Users\U I S\.gradle\caches\8.9\transforms\200a10ec718a923e9b59920edc70cf8c\transformed\jetified-ui-unit-release\res
+com.hotelvision.launcher.app-core-1.13.1-10 C:\Users\U I S\.gradle\caches\8.9\transforms\27e725d0337d47f8490608b3f09f5934\transformed\core-1.13.1\res
+com.hotelvision.launcher.app-jetified-lottie-6.5.0-11 C:\Users\U I S\.gradle\caches\8.9\transforms\298e26e787d1b51de339af893acfd59f\transformed\jetified-lottie-6.5.0\res
+com.hotelvision.launcher.app-jetified-emoji2-views-helper-1.3.0-12 C:\Users\U I S\.gradle\caches\8.9\transforms\29a9d7e391160b4e238e1268c0ef1e4f\transformed\jetified-emoji2-views-helper-1.3.0\res
+com.hotelvision.launcher.app-jetified-startup-runtime-1.1.1-13 C:\Users\U I S\.gradle\caches\8.9\transforms\2a779e4bebd1edb2fefdba8c88096efa\transformed\jetified-startup-runtime-1.1.1\res
+com.hotelvision.launcher.app-jetified-datastore-core-release-14 C:\Users\U I S\.gradle\caches\8.9\transforms\2b1e0ba7925fd690aaabe5776665e804\transformed\jetified-datastore-core-release\res
+com.hotelvision.launcher.app-work-runtime-2.9.1-15 C:\Users\U I S\.gradle\caches\8.9\transforms\2f65b0a9bf7dcf8907c86b180b5f0810\transformed\work-runtime-2.9.1\res
+com.hotelvision.launcher.app-appcompat-1.7.0-16 C:\Users\U I S\.gradle\caches\8.9\transforms\310e07ddd836e3d2dc178355847d1477\transformed\appcompat-1.7.0\res
+com.hotelvision.launcher.app-jetified-ui-tooling-preview-release-17 C:\Users\U I S\.gradle\caches\8.9\transforms\31f2895a7ae03d8a12d5c53f396d2bbf\transformed\jetified-ui-tooling-preview-release\res
+com.hotelvision.launcher.app-core-runtime-2.2.0-18 C:\Users\U I S\.gradle\caches\8.9\transforms\337ae3504ef7f0f9bd129cd41236ec8b\transformed\core-runtime-2.2.0\res
+com.hotelvision.launcher.app-jetified-animation-release-19 C:\Users\U I S\.gradle\caches\8.9\transforms\36ce894e939b40874a768559c9c5db06\transformed\jetified-animation-release\res
+com.hotelvision.launcher.app-jetified-savedstate-1.2.1-20 C:\Users\U I S\.gradle\caches\8.9\transforms\508be26f995f7157f064e0f930dd868e\transformed\jetified-savedstate-1.2.1\res
+com.hotelvision.launcher.app-navigation-common-2.5.1-21 C:\Users\U I S\.gradle\caches\8.9\transforms\5186db2158427ff51bd2ccc63d4a8821\transformed\navigation-common-2.5.1\res
+com.hotelvision.launcher.app-work-runtime-ktx-2.9.1-22 C:\Users\U I S\.gradle\caches\8.9\transforms\52eefd6cc4ec1ce8ac77b9b8e7a6d0cc\transformed\work-runtime-ktx-2.9.1\res
+com.hotelvision.launcher.app-jetified-lifecycle-livedata-core-ktx-2.8.7-23 C:\Users\U I S\.gradle\caches\8.9\transforms\55bc35508b6ab830347bb1779b66c4c6\transformed\jetified-lifecycle-livedata-core-ktx-2.8.7\res
+com.hotelvision.launcher.app-navigation-common-ktx-2.5.1-24 C:\Users\U I S\.gradle\caches\8.9\transforms\5b1b93466a825535e7d3ee913fe65f0e\transformed\navigation-common-ktx-2.5.1\res
+com.hotelvision.launcher.app-jetified-ui-release-25 C:\Users\U I S\.gradle\caches\8.9\transforms\618e4f2ae76b391ea256f2ba53b2cc88\transformed\jetified-ui-release\res
+com.hotelvision.launcher.app-jetified-lifecycle-service-2.8.7-26 C:\Users\U I S\.gradle\caches\8.9\transforms\652f2bd2474cc769f55d3f695c2f568d\transformed\jetified-lifecycle-service-2.8.7\res
+com.hotelvision.launcher.app-jetified-appcompat-resources-1.7.0-27 C:\Users\U I S\.gradle\caches\8.9\transforms\66a978c7478b8aeee0ee5241c440dbd9\transformed\jetified-appcompat-resources-1.7.0\res
+com.hotelvision.launcher.app-jetified-lifecycle-viewmodel-ktx-2.8.7-28 C:\Users\U I S\.gradle\caches\8.9\transforms\677c4e3b5581ab9176ecc07a9f714587\transformed\jetified-lifecycle-viewmodel-ktx-2.8.7\res
+com.hotelvision.launcher.app-jetified-datastore-preferences-release-29 C:\Users\U I S\.gradle\caches\8.9\transforms\6922bc1576a32615fd86eeb1fa3fcf20\transformed\jetified-datastore-preferences-release\res
+com.hotelvision.launcher.app-jetified-runtime-release-30 C:\Users\U I S\.gradle\caches\8.9\transforms\6a0626c458abe5cb4bdb26109d9e9507\transformed\jetified-runtime-release\res
+com.hotelvision.launcher.app-jetified-lifecycle-runtime-release-31 C:\Users\U I S\.gradle\caches\8.9\transforms\6ec2647a00e561f58a8dfd5670d8ad32\transformed\jetified-lifecycle-runtime-release\res
+com.hotelvision.launcher.app-jetified-customview-poolingcontainer-1.0.0-32 C:\Users\U I S\.gradle\caches\8.9\transforms\70e9ca7dd447ea15c308736549dfe42a\transformed\jetified-customview-poolingcontainer-1.0.0\res
+com.hotelvision.launcher.app-jetified-ui-text-release-33 C:\Users\U I S\.gradle\caches\8.9\transforms\771fabd3c000c101e013856db57e100f\transformed\jetified-ui-text-release\res
+com.hotelvision.launcher.app-jetified-ui-graphics-release-34 C:\Users\U I S\.gradle\caches\8.9\transforms\79b6f4f1def829f3496d681d6cef9a2e\transformed\jetified-ui-graphics-release\res
+com.hotelvision.launcher.app-jetified-lifecycle-runtime-ktx-release-35 C:\Users\U I S\.gradle\caches\8.9\transforms\7a553d8d2fc2798e9722035c2c8f4e10\transformed\jetified-lifecycle-runtime-ktx-release\res
+com.hotelvision.launcher.app-jetified-coil-core-release-36 C:\Users\U I S\.gradle\caches\8.9\transforms\7b6c305c2f8972cb15d5a53d23d9f5a4\transformed\jetified-coil-core-release\res
+com.hotelvision.launcher.app-jetified-profileinstaller-1.4.1-37 C:\Users\U I S\.gradle\caches\8.9\transforms\7fdae280bce38b6e86adfbeb0e043750\transformed\jetified-profileinstaller-1.4.1\res
+com.hotelvision.launcher.app-jetified-graphics-path-1.0.1-38 C:\Users\U I S\.gradle\caches\8.9\transforms\85b53071cb03f04a2d10392456ac103e\transformed\jetified-graphics-path-1.0.1\res
+com.hotelvision.launcher.app-jetified-core-splashscreen-1.0.1-39 C:\Users\U I S\.gradle\caches\8.9\transforms\8a48b1d3fd6c2f4b58446abed45ffad1\transformed\jetified-core-splashscreen-1.0.1\res
+com.hotelvision.launcher.app-jetified-activity-1.9.1-40 C:\Users\U I S\.gradle\caches\8.9\transforms\8a90dd892d8a21d1231f9432275f3911\transformed\jetified-activity-1.9.1\res
+com.hotelvision.launcher.app-jetified-lifecycle-viewmodel-savedstate-2.8.7-41 C:\Users\U I S\.gradle\caches\8.9\transforms\8c72306a31dc24d22e33d328961a29c5\transformed\jetified-lifecycle-viewmodel-savedstate-2.8.7\res
+com.hotelvision.launcher.app-navigation-runtime-ktx-2.5.1-42 C:\Users\U I S\.gradle\caches\8.9\transforms\9e80396ade38510b8da841d1047b1135\transformed\navigation-runtime-ktx-2.5.1\res
+com.hotelvision.launcher.app-jetified-ui-geometry-release-43 C:\Users\U I S\.gradle\caches\8.9\transforms\9e936732d795efa31140c1b7d5864678\transformed\jetified-ui-geometry-release\res
+com.hotelvision.launcher.app-jetified-lifecycle-viewmodel-release-44 C:\Users\U I S\.gradle\caches\8.9\transforms\a631f6e044b5206c7572973b4c6478d5\transformed\jetified-lifecycle-viewmodel-release\res
+com.hotelvision.launcher.app-jetified-hilt-work-1.2.0-45 C:\Users\U I S\.gradle\caches\8.9\transforms\ac271c94216a32d3aa266eb699c9f6d4\transformed\jetified-hilt-work-1.2.0\res
+com.hotelvision.launcher.app-room-runtime-2.6.1-46 C:\Users\U I S\.gradle\caches\8.9\transforms\af7e211889ae8a3a68c0db2516417b25\transformed\room-runtime-2.6.1\res
+com.hotelvision.launcher.app-jetified-foundation-layout-release-47 C:\Users\U I S\.gradle\caches\8.9\transforms\b66f2f4c33de41673374eedc457bc15e\transformed\jetified-foundation-layout-release\res
+com.hotelvision.launcher.app-sqlite-2.4.0-48 C:\Users\U I S\.gradle\caches\8.9\transforms\b733290b3a3443b4c2f7ffbd0933d54e\transformed\sqlite-2.4.0\res
+com.hotelvision.launcher.app-jetified-lifecycle-viewmodel-compose-release-49 C:\Users\U I S\.gradle\caches\8.9\transforms\be721f3f928c021f3eb65ce4c9ac40a9\transformed\jetified-lifecycle-viewmodel-compose-release\res
+com.hotelvision.launcher.app-jetified-annotation-experimental-1.4.1-50 C:\Users\U I S\.gradle\caches\8.9\transforms\bff140a7b55af2250ac290dcfbeea4b6\transformed\jetified-annotation-experimental-1.4.1\res
+com.hotelvision.launcher.app-jetified-tv-foundation-1.0.0-alpha11-51 C:\Users\U I S\.gradle\caches\8.9\transforms\c1de2ff260a310e50d9af422c857d8b8\transformed\jetified-tv-foundation-1.0.0-alpha11\res
+com.hotelvision.launcher.app-jetified-runtime-saveable-release-52 C:\Users\U I S\.gradle\caches\8.9\transforms\c2e40e091627f5464cfe72c87d3a2c0c\transformed\jetified-runtime-saveable-release\res
+com.hotelvision.launcher.app-jetified-emoji2-1.3.0-53 C:\Users\U I S\.gradle\caches\8.9\transforms\c557708e68317d0143ea6797d3b51ee2\transformed\jetified-emoji2-1.3.0\res
+com.hotelvision.launcher.app-lifecycle-livedata-core-2.8.7-54 C:\Users\U I S\.gradle\caches\8.9\transforms\cae46a3598674d4c009de21f08dc992f\transformed\lifecycle-livedata-core-2.8.7\res
+com.hotelvision.launcher.app-jetified-savedstate-ktx-1.2.1-55 C:\Users\U I S\.gradle\caches\8.9\transforms\ccafd9ac65da3a8ad43935d511b58e2b\transformed\jetified-savedstate-ktx-1.2.1\res
+com.hotelvision.launcher.app-jetified-material3-release-56 C:\Users\U I S\.gradle\caches\8.9\transforms\ccddf8013e3f42ae778ccc75878b7386\transformed\jetified-material3-release\res
+com.hotelvision.launcher.app-sqlite-framework-2.4.0-57 C:\Users\U I S\.gradle\caches\8.9\transforms\d26a09b17b041756d84f1266077c4418\transformed\sqlite-framework-2.4.0\res
+com.hotelvision.launcher.app-jetified-metrics-performance-1.0.0-beta03-58 C:\Users\U I S\.gradle\caches\8.9\transforms\d803544b3ac17a098942ea79b306da91\transformed\jetified-metrics-performance-1.0.0-beta03\res
+com.hotelvision.launcher.app-jetified-hilt-navigation-1.2.0-59 C:\Users\U I S\.gradle\caches\8.9\transforms\db333d203e39790a8aecc0d3af44280d\transformed\jetified-hilt-navigation-1.2.0\res
+com.hotelvision.launcher.app-jetified-activity-ktx-1.9.1-60 C:\Users\U I S\.gradle\caches\8.9\transforms\dd8e86a0b7da1c2b66040879b0c48770\transformed\jetified-activity-ktx-1.9.1\res
+com.hotelvision.launcher.app-lifecycle-livedata-2.8.7-61 C:\Users\U I S\.gradle\caches\8.9\transforms\e707609b42251a6c9369695947387466\transformed\lifecycle-livedata-2.8.7\res
+com.hotelvision.launcher.app-jetified-core-ktx-1.13.1-62 C:\Users\U I S\.gradle\caches\8.9\transforms\e8874c88e5de97a6200bb482e68aaf4e\transformed\jetified-core-ktx-1.13.1\res
+com.hotelvision.launcher.app-tvprovider-1.1.0-63 C:\Users\U I S\.gradle\caches\8.9\transforms\ef864ae8206bd5b2e72d8fc2ef113b7a\transformed\tvprovider-1.1.0\res
+com.hotelvision.launcher.app-jetified-tv-material-1.0.0-64 C:\Users\U I S\.gradle\caches\8.9\transforms\f485bfe8f83dcb8f4b55260b47265acd\transformed\jetified-tv-material-1.0.0\res
+com.hotelvision.launcher.app-jetified-lifecycle-runtime-compose-release-65 C:\Users\U I S\.gradle\caches\8.9\transforms\f6b82d77a234281a0846f6f3888e5d12\transformed\jetified-lifecycle-runtime-compose-release\res
+com.hotelvision.launcher.app-jetified-navigation-compose-2.5.1-66 C:\Users\U I S\.gradle\caches\8.9\transforms\f8d6fa6b05688e66bff9deb8bd85d523\transformed\jetified-navigation-compose-2.5.1\res
+com.hotelvision.launcher.app-jetified-datastore-release-67 C:\Users\U I S\.gradle\caches\8.9\transforms\f979685782133167c6a51613170ae8c6\transformed\jetified-datastore-release\res
+com.hotelvision.launcher.app-jetified-animation-core-release-68 C:\Users\U I S\.gradle\caches\8.9\transforms\faa07977cb5570665fd23261cc158671\transformed\jetified-animation-core-release\res
+com.hotelvision.launcher.app-navigation-runtime-2.5.1-69 C:\Users\U I S\.gradle\caches\8.9\transforms\fe11a5944033d88521d96c43d43d3396\transformed\navigation-runtime-2.5.1\res
+com.hotelvision.launcher.app-fragment-1.5.4-70 C:\Users\U I S\.gradle\caches\8.9\transforms\fe7e690631c854ef1f0529d84c93151f\transformed\fragment-1.5.4\res
+com.hotelvision.launcher.app-resValues-71 E:\hotel mode ui launcher\tv-launcher\app\build\generated\res\resValues\release
+com.hotelvision.launcher.app-packageReleaseResources-72 E:\hotel mode ui launcher\tv-launcher\app\build\intermediates\incremental\release\packageReleaseResources\merged.dir
+com.hotelvision.launcher.app-packageReleaseResources-73 E:\hotel mode ui launcher\tv-launcher\app\build\intermediates\incremental\release\packageReleaseResources\stripped.dir
+com.hotelvision.launcher.app-release-74 E:\hotel mode ui launcher\tv-launcher\app\build\intermediates\merged_res\release\mergeReleaseResources
+com.hotelvision.launcher.app-main-75 E:\hotel mode ui launcher\tv-launcher\app\src\main\res
+com.hotelvision.launcher.app-release-76 E:\hotel mode ui launcher\tv-launcher\app\src\release\res
+com.hotelvision.launcher.app-release-77 E:\hotel mode ui launcher\tv-launcher\launcher-core\build\intermediates\packaged_res\release\packageReleaseResources
+com.hotelvision.launcher.app-main-78 E:\hotel mode ui launcher\tv-launcher\launcher-design\src\main\res

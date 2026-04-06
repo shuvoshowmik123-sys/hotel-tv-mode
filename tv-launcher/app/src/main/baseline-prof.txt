@@ -1,0 +1,6 @@
+Lcom/hotelvision/launcher/MainActivity;
+Lcom/hotelvision/launcher/HotelApp;
+Lcom/hotelvision/launcher/ui/LauncherViewModel;
+Lcom/hotelvision/launcher/data/device/AndroidAppsProvider;
+Lcom/hotelvision/launcher/data/device/AndroidInputsProvider;
+Lcom/hotelvision/launcher/performance/LauncherPerformanceProfileKt;

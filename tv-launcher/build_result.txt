@@ -1,0 +1,71 @@
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.9/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+WARNING: The following problems were found when resolving the SDK location:
+Where: sdk.dir property in local.properties file. Problem: Directory does not exist
+
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :app:mergeDebugNativeDebugMetadata NO-SOURCE
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :launcher-core:preBuild UP-TO-DATE
+> Task :launcher-core:preDebugBuild UP-TO-DATE
+> Task :launcher-core:writeDebugAarMetadata UP-TO-DATE
+> Task :app:checkDebugAarMetadata UP-TO-DATE
+> Task :app:generateDebugResValues UP-TO-DATE
+> Task :launcher-core:generateDebugResValues UP-TO-DATE
+> Task :launcher-core:generateDebugResources UP-TO-DATE
+> Task :launcher-core:packageDebugResources UP-TO-DATE
+> Task :app:mapDebugSourceSetPaths UP-TO-DATE
+> Task :app:generateDebugResources UP-TO-DATE
+> Task :app:mergeDebugResources UP-TO-DATE
+> Task :app:packageDebugResources UP-TO-DATE
+> Task :app:parseDebugLocalResources UP-TO-DATE
+> Task :app:createDebugCompatibleScreenManifests UP-TO-DATE
+> Task :app:extractDeepLinksDebug UP-TO-DATE
+> Task :launcher-core:extractDeepLinksDebug UP-TO-DATE
+> Task :launcher-core:processDebugManifest UP-TO-DATE
+> Task :app:processDebugMainManifest UP-TO-DATE
+> Task :app:processDebugManifest UP-TO-DATE
+> Task :app:processDebugManifestForPackage UP-TO-DATE
+> Task :launcher-core:compileDebugLibraryResources UP-TO-DATE
+> Task :launcher-core:parseDebugLocalResources UP-TO-DATE
+> Task :launcher-core:generateDebugRFile UP-TO-DATE
+> Task :app:processDebugResources UP-TO-DATE
+> Task :launcher-core:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :launcher-core:generateDebugBuildConfig UP-TO-DATE
+> Task :launcher-core:kspDebugKotlin UP-TO-DATE
+> Task :launcher-core:compileDebugKotlin UP-TO-DATE
+> Task :launcher-core:javaPreCompileDebug UP-TO-DATE
+> Task :launcher-core:compileDebugJavaWithJavac UP-TO-DATE
+> Task :launcher-core:transformDebugClassesWithAsm UP-TO-DATE
+> Task :launcher-core:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :app:javaPreCompileDebug UP-TO-DATE
+> Task :app:mergeDebugShaders UP-TO-DATE
+> Task :app:compileDebugShaders NO-SOURCE
+> Task :app:generateDebugAssets UP-TO-DATE
+> Task :launcher-core:mergeDebugShaders UP-TO-DATE
+> Task :launcher-core:compileDebugShaders NO-SOURCE
+> Task :launcher-core:generateDebugAssets UP-TO-DATE
+> Task :launcher-core:packageDebugAssets UP-TO-DATE
+> Task :app:mergeDebugAssets UP-TO-DATE
+> Task :app:compressDebugAssets UP-TO-DATE
+> Task :launcher-core:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :app:desugarDebugFileDependencies UP-TO-DATE
+> Task :launcher-core:processDebugJavaRes UP-TO-DATE
+> Task :app:checkDebugDuplicateClasses UP-TO-DATE
+> Task :app:mergeLibDexDebug UP-TO-DATE
+> Task :app:mergeDebugJniLibFolders UP-TO-DATE
+> Task :launcher-core:mergeDebugJniLibFolders UP-TO-DATE
+> Task :launcher-core:mergeDebugNativeLibs NO-SOURCE
+> Task :launcher-core:copyDebugJniLibsProjectOnly UP-TO-DATE
+> Task :app:mergeDebugNativeLibs UP-TO-DATE
+> Task :app:stripDebugDebugSymbols UP-TO-DATE
+> Task :app:validateSigningDebug UP-TO-DATE
+> Task :app:writeDebugAppMetadata UP-TO-DATE
+> Task :app:writeDebugSigningConfigVersions UP-TO-DATE
+> Task :launcher-core:stripDebugDebugSymbols NO-SOURCE
+> Task :launcher-core:copyDebugJniLibsProjectAndLocalJars
+> Task :app:kspDebugKotlin
+> Task :app:mergeExtDexDebug
+> Task :launcher-core:extractDebugAnnotations
+Terminate batch job (Y/N)? 

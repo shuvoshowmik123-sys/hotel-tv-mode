@@ -1,0 +1,8 @@
+com.hotelvision.launcher.design.launcher-design-jetified-core-splashscreen-1.0.1-0 C:\Users\U I S\.gradle\caches\8.9\transforms\8a48b1d3fd6c2f4b58446abed45ffad1\transformed\jetified-core-splashscreen-1.0.1\res
+com.hotelvision.launcher.design.launcher-design-pngs-1 E:\hotel mode ui launcher\tv-launcher\launcher-design\build\generated\res\pngs\release
+com.hotelvision.launcher.design.launcher-design-resValues-2 E:\hotel mode ui launcher\tv-launcher\launcher-design\build\generated\res\resValues\release
+com.hotelvision.launcher.design.launcher-design-mergeReleaseResources-3 E:\hotel mode ui launcher\tv-launcher\launcher-design\build\intermediates\incremental\release\mergeReleaseResources\merged.dir
+com.hotelvision.launcher.design.launcher-design-mergeReleaseResources-4 E:\hotel mode ui launcher\tv-launcher\launcher-design\build\intermediates\incremental\release\mergeReleaseResources\stripped.dir
+com.hotelvision.launcher.design.launcher-design-release-5 E:\hotel mode ui launcher\tv-launcher\launcher-design\build\intermediates\merged_res\release\mergeReleaseResources
+com.hotelvision.launcher.design.launcher-design-main-6 E:\hotel mode ui launcher\tv-launcher\launcher-design\src\main\res
+com.hotelvision.launcher.design.launcher-design-release-7 E:\hotel mode ui launcher\tv-launcher\launcher-design\src\release\res

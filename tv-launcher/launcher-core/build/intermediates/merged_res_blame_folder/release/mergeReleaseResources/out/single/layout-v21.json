@@ -1,0 +1,18 @@
+[
+    {
+        "merged": "com.hotelvision.launcher.core.launcher-core-release-35:/layout-v21/notification_action.xml",
+        "source": "com.hotelvision.launcher.core.launcher-core-core-1.13.1-1:/layout-v21/notification_action.xml"
+    },
+    {
+        "merged": "com.hotelvision.launcher.core.launcher-core-release-35:/layout-v21/notification_template_icon_group.xml",
+        "source": "com.hotelvision.launcher.core.launcher-core-core-1.13.1-1:/layout-v21/notification_template_icon_group.xml"
+    },
+    {
+        "merged": "com.hotelvision.launcher.core.launcher-core-release-35:/layout-v21/notification_template_custom_big.xml",
+        "source": "com.hotelvision.launcher.core.launcher-core-core-1.13.1-1:/layout-v21/notification_template_custom_big.xml"
+    },
+    {
+        "merged": "com.hotelvision.launcher.core.launcher-core-release-35:/layout-v21/notification_action_tombstone.xml",
+        "source": "com.hotelvision.launcher.core.launcher-core-core-1.13.1-1:/layout-v21/notification_action_tombstone.xml"
+    }
+]

@@ -1,0 +1,10 @@
+[
+    {
+        "merged": "com.hotelvision.launcher.design.launcher-design-release-4:/drawable-v23/compat_splash_screen.xml",
+        "source": "com.hotelvision.launcher.design.launcher-design-jetified-core-splashscreen-1.0.1-0:/drawable-v23/compat_splash_screen.xml"
+    },
+    {
+        "merged": "com.hotelvision.launcher.design.launcher-design-release-4:/drawable-v23/compat_splash_screen_no_icon_background.xml",
+        "source": "com.hotelvision.launcher.design.launcher-design-jetified-core-splashscreen-1.0.1-0:/drawable-v23/compat_splash_screen_no_icon_background.xml"
+    }
+]

@@ -1,0 +1,34 @@
+{
+    "logs": [
+        {
+            "outputFile": "com.hotelvision.launcher.design.launcher-design-mergeReleaseResources-2:/values-night-v8/values-night-v8.xml",
+            "map": [
+                {
+                    "source": "C:\\Users\\U I S\\.gradle\\caches\\8.9\\transforms\\8a48b1d3fd6c2f4b58446abed45ffad1\\transformed\\jetified-core-splashscreen-1.0.1\\res\\values-night-v8\\values-night-v8.xml",
+                    "from": {
+                        "startLines": "2",
+                        "startColumns": "4",
+                        "startOffsets": "55",
+                        "endColumns": "85",
+                        "endOffsets": "136"
+                    }
+                }
+            ]
+        },
+        {
+            "outputFile": "com.hotelvision.launcher.design.launcher-design-release-4:/values-night-v8/values-night-v8.xml",
+            "map": [
+                {
+                    "source": "C:\\Users\\U I S\\.gradle\\caches\\8.9\\transforms\\8a48b1d3fd6c2f4b58446abed45ffad1\\transformed\\jetified-core-splashscreen-1.0.1\\res\\values-night-v8\\values-night-v8.xml",
+                    "from": {
+                        "startLines": "2",
+                        "startColumns": "4",
+                        "startOffsets": "55",
+                        "endColumns": "85",
+                        "endOffsets": "136"
+                    }
+                }
+            ]
+        }
+    ]
+}

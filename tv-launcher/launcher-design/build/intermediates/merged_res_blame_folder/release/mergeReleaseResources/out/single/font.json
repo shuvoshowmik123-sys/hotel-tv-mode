@@ -1,0 +1,10 @@
+[
+    {
+        "merged": "com.hotelvision.launcher.design.launcher-design-release-4:/font/outfit.xml",
+        "source": "com.hotelvision.launcher.design.launcher-design-main-5:/font/outfit.xml"
+    },
+    {
+        "merged": "com.hotelvision.launcher.design.launcher-design-release-4:/font/outfit_variable.ttf",
+        "source": "com.hotelvision.launcher.design.launcher-design-main-5:/font/outfit_variable.ttf"
+    }
+]

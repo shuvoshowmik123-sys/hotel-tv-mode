@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Google TV Quick Settings Panel Dimensions (exact from decompiled APK) -->
+    <dimen name="gtv_dashboard_min_width">300dp</dimen>
+    <dimen name="gtv_dashboard_corner_radius">14dp</dimen>
+    <dimen name="gtv_dashboard_content_padding_horizontal">24dp</dimen>
+    <dimen name="gtv_dashboard_content_padding_vertical">28dp</dimen>
+    <dimen name="gtv_dashboard_title_margin_top">72dp</dimen>
+
+    <!-- Google TV Half Tile Dimensions (exact from decompiled APK) -->
+    <dimen name="gtv_dashboard_half_tile_width">122dp</dimen>
+    <dimen name="gtv_dashboard_general_tile_height">70dp</dimen>
+    <dimen name="gtv_dashboard_tile_corner_radius_small">3dp</dimen>
+    <dimen name="gtv_dashboard_tile_corner_radius_large">16dp</dimen>
+    <dimen name="gtv_dashboard_icon_size_small">20dp</dimen>
+
+    <!-- Context Menu Dimensions -->
+    <dimen name="gtv_context_menu_radius">10dp</dimen>
+    <dimen name="gtv_context_menu_width">236dp</dimen>
+    <dimen name="gtv_context_menu_padding">20dp</dimen>
+    <dimen name="gtv_context_menu_elevation">16dp</dimen>
+    <dimen name="gtv_context_menu_anchor_margin">24dp</dimen>
+    <dimen name="gtv_context_menu_anchor_vertical_offset">8dp</dimen>
+</resources>

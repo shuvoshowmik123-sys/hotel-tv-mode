@@ -1,0 +1,10 @@
+[
+    {
+        "merged": "com.hotelvision.launcher.design.launcher-design-release-4:/drawable/icon_background.xml",
+        "source": "com.hotelvision.launcher.design.launcher-design-jetified-core-splashscreen-1.0.1-0:/drawable/icon_background.xml"
+    },
+    {
+        "merged": "com.hotelvision.launcher.design.launcher-design-release-4:/drawable/ic_banner.xml",
+        "source": "com.hotelvision.launcher.design.launcher-design-main-5:/drawable/ic_banner.xml"
+    }
+]

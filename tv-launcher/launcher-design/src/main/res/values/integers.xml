@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Width buckets are launcher-side clamps layered on top of the reference minimum width. -->
+    <integer name="gtv_quick_settings_panel_width_percent_default">32</integer>
+    <integer name="gtv_quick_settings_panel_width_percent_compact">35</integer>
+
+    <!-- Motion tokens fallback to launcher-local values when the APK did not expose a clean animator resource. -->
+    <integer name="gtv_quick_settings_enter_fade_ms">180</integer>
+    <integer name="gtv_quick_settings_enter_slide_ms">220</integer>
+    <integer name="gtv_quick_settings_exit_fade_ms">160</integer>
+    <integer name="gtv_quick_settings_exit_slide_ms">200</integer>
+</resources>

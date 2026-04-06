@@ -1,0 +1,6 @@
+[
+    {
+        "merged": "com.hotelvision.launcher.core.launcher-core-release-35:/drawable-v21/notification_action_background.xml",
+        "source": "com.hotelvision.launcher.core.launcher-core-core-1.13.1-1:/drawable-v21/notification_action_background.xml"
+    }
+]

@@ -1,0 +1,26 @@
+[
+    {
+        "merged": "com.hotelvision.launcher.core.launcher-core-release-35:/animator/fragment_fade_enter.xml",
+        "source": "com.hotelvision.launcher.core.launcher-core-fragment-1.5.1-18:/animator/fragment_fade_enter.xml"
+    },
+    {
+        "merged": "com.hotelvision.launcher.core.launcher-core-release-35:/animator/fragment_fade_exit.xml",
+        "source": "com.hotelvision.launcher.core.launcher-core-fragment-1.5.1-18:/animator/fragment_fade_exit.xml"
+    },
+    {
+        "merged": "com.hotelvision.launcher.core.launcher-core-release-35:/animator/fragment_close_enter.xml",
+        "source": "com.hotelvision.launcher.core.launcher-core-fragment-1.5.1-18:/animator/fragment_close_enter.xml"
+    },
+    {
+        "merged": "com.hotelvision.launcher.core.launcher-core-release-35:/animator/fragment_open_enter.xml",
+        "source": "com.hotelvision.launcher.core.launcher-core-fragment-1.5.1-18:/animator/fragment_open_enter.xml"
+    },
+    {
+        "merged": "com.hotelvision.launcher.core.launcher-core-release-35:/animator/fragment_open_exit.xml",
+        "source": "com.hotelvision.launcher.core.launcher-core-fragment-1.5.1-18:/animator/fragment_open_exit.xml"
+    },
+    {
+        "merged": "com.hotelvision.launcher.core.launcher-core-release-35:/animator/fragment_close_exit.xml",
+        "source": "com.hotelvision.launcher.core.launcher-core-fragment-1.5.1-18:/animator/fragment_close_exit.xml"
+    }
+]
