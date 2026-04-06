@@ -21,6 +21,12 @@ const {
   buildWorkflowSteps
 } = require("./lib/panel-data");
 const {
+  ROOM_CATEGORY_OPTIONS,
+  CLIMATE_CONTROL_OPTIONS,
+  normalizeRoomCategory,
+  normalizeClimateControl
+} = require("./lib/room-options");
+const {
   ROLES,
   roleLabel,
   hashPassword,
@@ -1064,6 +1070,10 @@ async function buildAdminState(user) {
     .at(-1) || null;
   return {
     currentUser: safeUser(user),
+    roomCatalog: {
+      roomCategories: ROOM_CATEGORY_OPTIONS,
+      climateControls: CLIMATE_CONTROL_OPTIONS
+    },
     property: store.property,
     hotel: store.hotel,
     weather: store.weather,
@@ -1638,6 +1648,8 @@ app.post(
         ...(existing || {}),
         roomNumber,
         floor: req.body.floor || existing?.floor || roomNumber.slice(0, Math.max(1, roomNumber.length - 2)),
+        roomCategory: normalizeRoomCategory(req.body.roomCategory || existing?.roomCategory),
+        climateControl: normalizeClimateControl(req.body.climateControl || existing?.climateControl),
         status: "unbound",
         guestName: "",
         deviceId: "",
@@ -1683,6 +1695,8 @@ app.post(
         ...(existing || {}),
         roomNumber,
         floor: req.body.floor || existing?.floor || roomNumber.slice(0, Math.max(1, roomNumber.length - 2)),
+        roomCategory: normalizeRoomCategory(req.body.roomCategory || existing?.roomCategory),
+        climateControl: normalizeClimateControl(req.body.climateControl || existing?.climateControl),
         status: "unbound",
         guestName: "",
         deviceId: "",
@@ -1723,6 +1737,8 @@ app.patch(
       {
         ...current,
         floor: `${req.body.floor ?? current.floor ?? ""}`.trim(),
+        roomCategory: normalizeRoomCategory(req.body.roomCategory ?? current.roomCategory),
+        climateControl: normalizeClimateControl(req.body.climateControl ?? current.climateControl),
         guestName: nextGuestName,
         welcomeNote: `${req.body.welcomeNote ?? current.welcomeNote ?? ""}`.trim(),
         language: `${req.body.language ?? current.language ?? "English"}`.trim(),
@@ -2079,8 +2095,6 @@ app.post(
     const store = await getStore();
     const activationCode = `${req.body.activationCode || ""}`.trim().toUpperCase();
     const roomNumber = `${req.body.roomNumber || ""}`.trim();
-    const guestName = `${req.body.guestName || ""}`.trim();
-    const welcomeNote = `${req.body.welcomeNote || ""}`.trim();
     if (!activationCode || !roomNumber) {
       return res.status(400).json({ error: "activationCode and roomNumber are required" });
     }
@@ -2092,20 +2106,26 @@ app.post(
       roomNumber,
       floor: roomNumber.slice(0, roomNumber.length - 2)
     };
+    const floor = `${req.body.floor || current.floor || roomNumber.slice(0, Math.max(1, roomNumber.length - 2))}`.trim();
+    const roomCategory = normalizeRoomCategory(req.body.roomCategory || current.roomCategory);
+    const climateControl = normalizeClimateControl(req.body.climateControl || current.climateControl);
     store.rooms[roomNumber] = normalizeRoom(
       roomNumber,
       {
         ...current,
         roomNumber,
-        guestName,
-        welcomeNote,
-        status: guestName ? "occupied" : "vacant",
+        floor,
+        roomCategory,
+        climateControl,
+        guestName: current.guestName || "",
+        welcomeNote: current.welcomeNote || "",
+        status: current.guestName ? "occupied" : "vacant",
         deviceId: pendingEntry.deviceId || current.deviceId || `TV-${roomNumber}`,
-        checkInAt: guestName ? nowIso() : current.checkInAt || "",
+        checkInAt: current.guestName ? current.checkInAt || nowIso() : current.checkInAt || "",
         lastSyncAt: nowIso(),
         lastUpdatedBy: req.currentUser.name,
         hasBindingHistory: true,
-        hasSessionHistory: current.hasSessionHistory || Boolean(guestName),
+        hasSessionHistory: current.hasSessionHistory || Boolean(current.guestName),
         archivedAt: null,
         archivedBy: null
       },
@@ -2126,13 +2146,13 @@ app.post(
     pushAudit(store, {
       actorName: req.currentUser.name,
       actorRole: req.currentUser.role,
-      action: `Bound activation ${activationCode} to room ${roomNumber}`,
+      action: `Bound activation ${activationCode} to room ${roomNumber} (${roomCategory}, ${climateControl})`,
       entityType: "ROOM",
       entityId: roomNumber,
       tone: "success"
     });
     await saveStore(store);
-    res.json({ ok: true, sessionToken, roomNumber });
+    res.json({ ok: true, sessionToken, roomNumber, room: store.rooms[roomNumber] });
   })
 );
 

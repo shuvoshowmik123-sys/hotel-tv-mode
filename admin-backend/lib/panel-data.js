@@ -1,4 +1,8 @@
 const crypto = require("crypto");
+const {
+  normalizeRoomCategory,
+  normalizeClimateControl
+} = require("./room-options");
 
 const MEAL_CATEGORIES = ["breakfast", "lunch", "dinner", "beverages"];
 
@@ -64,6 +68,8 @@ function normalizeRoom(roomNumber, source = {}, fallbackSyncTime = nowIso()) {
   return {
     roomNumber: trimmedRoom,
     floor: `${source.floor || trimmedRoom.slice(0, Math.max(1, trimmedRoom.length - 2))}`.trim(),
+    roomCategory: normalizeRoomCategory(source.roomCategory),
+    climateControl: normalizeClimateControl(source.climateControl),
     status,
     guestName,
     deviceId,

@@ -7,6 +7,7 @@ import { PillButton, StatusPill } from "../../../components/UIElements";
 import { ConfirmModal } from "../../../components/ConfirmModal";
 import { api } from "../../../lib/api";
 import { canManageRoomOverrides, canModuleAction, isRoomManagementReadOnly } from "../../../lib/permissions";
+import { CLIMATE_CONTROL_OPTIONS, ROOM_CATEGORY_OPTIONS, climateControlBadge, roomCategoryBadge } from "../../../lib/roomOptions";
 
 function roomStatusTone(status?: string): "occupied" | "vacant" | "warning" | "default" {
     if (status === "occupied") return "occupied";
@@ -24,6 +25,9 @@ export default function RoomsPage() {
     const [deleteTarget, setDeleteTarget] = useState<any>(null);
     const [isAddingRoom, setIsAddingRoom] = useState(false);
     const [newRoomNumber, setNewRoomNumber] = useState("");
+    const [newFloor, setNewFloor] = useState("");
+    const [newRoomCategory, setNewRoomCategory] = useState<string>(ROOM_CATEGORY_OPTIONS[0]);
+    const [newClimateControl, setNewClimateControl] = useState<string>(CLIMATE_CONTROL_OPTIONS[0]);
     const [newRoomError, setNewRoomError] = useState("");
     const [message, setMessage] = useState("");
     const searchParams = useSearchParams();
@@ -102,6 +106,9 @@ export default function RoomsPage() {
                             <PillButton primary onClick={() => {
                                 setIsAddingRoom(true);
                                 setNewRoomNumber("");
+                                setNewFloor("");
+                                setNewRoomCategory(ROOM_CATEGORY_OPTIONS[0]);
+                                setNewClimateControl(CLIMATE_CONTROL_OPTIONS[0]);
                                 setNewRoomError("");
                             }}>
                                 Add Room
@@ -129,7 +136,10 @@ export default function RoomsPage() {
                                         {room.status}
                                     </span>
                                     <span className={`text-[10px] mt-1 ${isSelected ? "text-white/80" : "text-luxury-800/40"}`}>
-                                        {room.guestName || room.deviceId || "No guest / no TV"}
+                                        {roomCategoryBadge(room.roomCategory)}
+                                    </span>
+                                    <span className={`text-[10px] ${isSelected ? "text-white/75" : "text-luxury-800/35"}`}>
+                                        {climateControlBadge(room.climateControl)}
                                     </span>
                                 </button>
                             );
@@ -145,6 +155,14 @@ export default function RoomsPage() {
                                     <div className="text-4xl font-mono text-gold-500">{selectedRoom.roomNumber}</div>
                                     <div className="text-xs font-bold uppercase tracking-wider text-luxury-800/50 mt-2">
                                         Floor {selectedRoom.floor || "Not set"}
+                                    </div>
+                                    <div className="flex flex-wrap gap-2 mt-3">
+                                        <span className="rounded-full bg-gold-500/10 text-gold-700 px-3 py-1 text-[11px] font-bold uppercase tracking-wider">
+                                            {roomCategoryBadge(selectedRoom.roomCategory)}
+                                        </span>
+                                        <span className="rounded-full bg-luxury-100 text-luxury-700 px-3 py-1 text-[11px] font-bold uppercase tracking-wider">
+                                            {climateControlBadge(selectedRoom.climateControl)}
+                                        </span>
                                     </div>
                                 </div>
                                 <StatusPill status={roomStatusTone(selectedRoom.status)} label={selectedRoom.status || "unknown"} />
@@ -162,6 +180,14 @@ export default function RoomsPage() {
                                 <div>
                                     <div className="text-xs font-bold uppercase tracking-wider text-luxury-800/50 mb-1">Language</div>
                                     <div className="text-sm font-medium text-luxury-900">{selectedRoom.language || "English"}</div>
+                                </div>
+                                <div>
+                                    <div className="text-xs font-bold uppercase tracking-wider text-luxury-800/50 mb-1">Room Category</div>
+                                    <div className="text-sm font-medium text-luxury-900">{roomCategoryBadge(selectedRoom.roomCategory)}</div>
+                                </div>
+                                <div>
+                                    <div className="text-xs font-bold uppercase tracking-wider text-luxury-800/50 mb-1">Climate Type</div>
+                                    <div className="text-sm font-medium text-luxury-900">{climateControlBadge(selectedRoom.climateControl)}</div>
                                 </div>
                                 <div>
                                     <div className="text-xs font-bold uppercase tracking-wider text-luxury-800/50 mb-1">Last Sync</div>
@@ -201,6 +227,8 @@ export default function RoomsPage() {
                                             const fd = new FormData(e.currentTarget);
                                             const payload = {
                                                 floor: `${fd.get("floor") || ""}`.trim(),
+                                                roomCategory: `${fd.get("roomCategory") || ""}`.trim(),
+                                                climateControl: `${fd.get("climateControl") || ""}`.trim(),
                                                 guestName: `${fd.get("guestName") || ""}`.trim(),
                                                 welcomeNote: `${fd.get("welcomeNote") || ""}`.trim(),
                                                 language: `${fd.get("language") || ""}`.trim() || "English",
@@ -219,6 +247,22 @@ export default function RoomsPage() {
                                     <div>
                                         <label className="block text-xs font-bold uppercase tracking-wider text-luxury-800/60 mb-1">Floor</label>
                                         <input name="floor" defaultValue={selectedRoom.floor || ""} className="w-full bg-luxury-50 border border-luxury-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold-500/50" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold uppercase tracking-wider text-luxury-800/60 mb-1">Room Category</label>
+                                        <select name="roomCategory" defaultValue={selectedRoom.roomCategory || ROOM_CATEGORY_OPTIONS[0]} className="w-full bg-luxury-50 border border-luxury-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold-500/50">
+                                            {ROOM_CATEGORY_OPTIONS.map((option) => (
+                                                <option key={option} value={option}>{option}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold uppercase tracking-wider text-luxury-800/60 mb-1">Climate Type</label>
+                                        <select name="climateControl" defaultValue={selectedRoom.climateControl || CLIMATE_CONTROL_OPTIONS[0]} className="w-full bg-luxury-50 border border-luxury-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold-500/50">
+                                            {CLIMATE_CONTROL_OPTIONS.map((option) => (
+                                                <option key={option} value={option}>{option}</option>
+                                            ))}
+                                        </select>
                                     </div>
                                     <div>
                                         <label className="block text-xs font-bold uppercase tracking-wider text-luxury-800/60 mb-1">Guest Name</label>
@@ -358,7 +402,12 @@ export default function RoomsPage() {
                             try {
                                 await api("/api/admin/rooms", {
                                     method: "POST",
-                                    body: JSON.stringify({ roomNumber: newRoomNumber.trim() })
+                                    body: JSON.stringify({
+                                        roomNumber: newRoomNumber.trim(),
+                                        floor: newFloor.trim(),
+                                        roomCategory: newRoomCategory,
+                                        climateControl: newClimateControl
+                                    })
                                 });
                                 setMessage(`Created room ${newRoomNumber.trim()}.`);
                                 setIsAddingRoom(false);
@@ -381,6 +430,49 @@ export default function RoomsPage() {
                                     className="w-full bg-luxury-50 border border-luxury-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-gold-500/50"
                                 />
                                 {newRoomError && <div className="text-xs text-red-500 mt-2 font-medium">{newRoomError}</div>}
+                            </div>
+
+                            <div className="mb-4">
+                                <label className="block text-xs font-bold uppercase tracking-wider text-luxury-800/60 mb-1">
+                                    Floor
+                                </label>
+                                <input
+                                    type="text"
+                                    value={newFloor}
+                                    onChange={e => setNewFloor(e.target.value)}
+                                    placeholder="e.g. 12"
+                                    className="w-full bg-luxury-50 border border-luxury-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-gold-500/50"
+                                />
+                            </div>
+
+                            <div className="mb-4">
+                                <label className="block text-xs font-bold uppercase tracking-wider text-luxury-800/60 mb-1">
+                                    Room Category
+                                </label>
+                                <select
+                                    value={newRoomCategory}
+                                    onChange={e => setNewRoomCategory(e.target.value)}
+                                    className="w-full bg-luxury-50 border border-luxury-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-gold-500/50"
+                                >
+                                    {ROOM_CATEGORY_OPTIONS.map((option) => (
+                                        <option key={option} value={option}>{option}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="mb-6">
+                                <label className="block text-xs font-bold uppercase tracking-wider text-luxury-800/60 mb-1">
+                                    Climate Type
+                                </label>
+                                <select
+                                    value={newClimateControl}
+                                    onChange={e => setNewClimateControl(e.target.value)}
+                                    className="w-full bg-luxury-50 border border-luxury-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-gold-500/50"
+                                >
+                                    {CLIMATE_CONTROL_OPTIONS.map((option) => (
+                                        <option key={option} value={option}>{option}</option>
+                                    ))}
+                                </select>
                             </div>
 
                             <div className="flex justify-end gap-3">
