@@ -30,6 +30,7 @@ const {
   hasFirstAdminConfig,
   firstAdminConfig
 } = require("./lib/auth");
+const { canModuleAction } = require("./lib/permissions");
 
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
@@ -1091,10 +1092,10 @@ async function buildAdminState(user) {
       syncVersion: store.sync.version
     },
     notifications: (store.notifications || []).slice(0, 10),
-    auditLogs: user.role === ROLES.SUPER_ADMIN ? (store.auditLogs || []).slice(0, 50) : [],
-    users: user.role === ROLES.SUPER_ADMIN ? await listUsers() : [],
+    auditLogs: canModuleAction(user.role, "audit", "view") ? (store.auditLogs || []).slice(0, 50) : [],
+    users: canModuleAction(user.role, "users", "view") ? await listUsers() : [],
     settings:
-      user.role === ROLES.SUPER_ADMIN
+      canModuleAction(user.role, "settings", "view")
         ? {
             property: store.property,
             integration: {
@@ -1249,6 +1250,42 @@ function requireRoles(roles, handler) {
     }
     return handler(req, res, next);
   });
+}
+
+function requireModuleAction(moduleKey, action, handler) {
+  return requireAuth(async (req, res, next) => {
+    if (!canModuleAction(req.currentUser.role, moduleKey, action)) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+    return handler(req, res, next);
+  });
+}
+
+function ensureConfigPermission(user, payload = {}) {
+  const checks = [];
+  if (payload.hotel || payload.weather || payload.popup || payload.backgrounds || payload.sections) {
+    checks.push(["content", "edit"]);
+  }
+
+  const visibility = payload.visibility || {};
+  if (Object.prototype.hasOwnProperty.call(visibility, "destinations")) {
+    checks.push(["content", "edit"]);
+  }
+  if (
+    Object.prototype.hasOwnProperty.call(visibility, "visibleAppPackages") ||
+    Object.prototype.hasOwnProperty.call(visibility, "visibleSourceTitles")
+  ) {
+    checks.push(["policies", "edit"]);
+  }
+  if (payload.meals) {
+    checks.push(["menus", "edit"]);
+  }
+  if (payload.property || payload.sync) {
+    checks.push(["settings", "edit"]);
+  }
+
+  const denied = checks.find(([moduleKey, action]) => !canModuleAction(user.role, moduleKey, action));
+  return !denied;
 }
 
 app.get(
@@ -1416,14 +1453,14 @@ app.get(
 
 app.get(
   "/api/admin/users",
-  requireRoles([ROLES.SUPER_ADMIN], async (_, res) => {
+  requireModuleAction("users", "view", async (_, res) => {
     res.json({ users: await listUsers() });
   })
 );
 
 app.post(
   "/api/admin/users",
-  requireRoles([ROLES.SUPER_ADMIN], async (req, res) => {
+  requireModuleAction("users", "create", async (req, res) => {
     const payload = req.body || {};
     if (!payload.name || !payload.email || !payload.password || !payload.role) {
       return res.status(400).json({ error: "name, email, password, and role are required" });
@@ -1449,7 +1486,7 @@ app.post(
 
 app.patch(
   "/api/admin/users/:userId",
-  requireRoles([ROLES.SUPER_ADMIN], async (req, res) => {
+  requireModuleAction("users", "edit", async (req, res) => {
     const current = await findUserById(req.params.userId);
     if (!current) {
       return res.status(404).json({ error: "User not found" });
@@ -1484,7 +1521,7 @@ app.patch(
 
 app.delete(
   "/api/admin/users/:userId",
-  requireRoles([ROLES.SUPER_ADMIN], async (req, res) => {
+  requireModuleAction("users", "delete", async (req, res) => {
     let user;
     try {
       user = await archiveUser(req.params.userId);
@@ -1510,9 +1547,12 @@ app.delete(
 
 app.post(
   "/api/admin/config",
-  requireRoles([ROLES.SUPER_ADMIN, ROLES.ADMIN], async (req, res) => {
+  requireAuth(async (req, res) => {
     const store = await getStore();
     const next = req.body || {};
+    if (!ensureConfigPermission(req.currentUser, next)) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
     store.hotel = { ...store.hotel, ...(next.hotel || {}) };
     store.weather = { ...store.weather, ...(next.weather || {}) };
     store.popup = { ...store.popup, ...(next.popup || {}) };
@@ -1573,7 +1613,7 @@ app.post(
 
 app.get(
   "/api/admin/rooms",
-  requireRoles([ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.RECEPTIONIST], async (_, res) => {
+  requireModuleAction("rooms", "view", async (_, res) => {
     const store = await getStore();
     res.json({ rooms: activeRoomsMap(store) });
   })
@@ -1581,7 +1621,7 @@ app.get(
 
 app.post(
   "/api/admin/rooms",
-  requireRoles([ROLES.SUPER_ADMIN, ROLES.ADMIN], async (req, res) => {
+  requireModuleAction("rooms", "create", async (req, res) => {
     const store = await getStore();
     const roomNumber = `${req.body.roomNumber || ""}`.trim();
     if (!roomNumber) {
@@ -1627,7 +1667,7 @@ app.post(
 
 app.post(
   "/api/admin/rooms/create",
-  requireRoles([ROLES.SUPER_ADMIN, ROLES.ADMIN], async (req, res) => {
+  requireModuleAction("rooms", "create", async (req, res) => {
     const store = await getStore();
     const roomNumber = `${req.body.roomNumber || ""}`.trim();
     if (!roomNumber) {
@@ -1670,7 +1710,7 @@ app.post(
 
 app.patch(
   "/api/admin/rooms/:roomNumber",
-  requireRoles([ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.RECEPTIONIST], async (req, res) => {
+  requireModuleAction("rooms", "edit", async (req, res) => {
     const store = await getStore();
     const roomNumber = `${req.params.roomNumber || ""}`.trim();
     const current = store.rooms[roomNumber];
@@ -1708,7 +1748,7 @@ app.patch(
 
 app.post(
   "/api/admin/rooms/:roomNumber/checkin",
-  requireRoles([ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.RECEPTIONIST], async (req, res) => {
+  requireModuleAction("sessions", "create", async (req, res) => {
     const store = await getStore();
     const roomNumber = `${req.params.roomNumber || ""}`.trim();
     const room = store.rooms[roomNumber];
@@ -1749,7 +1789,7 @@ app.post(
 
 app.post(
   "/api/admin/rooms/:roomNumber/checkout",
-  requireRoles([ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.RECEPTIONIST], async (req, res) => {
+  requireModuleAction("sessions", "delete", async (req, res) => {
     const store = await getStore();
     const room = store.rooms[req.params.roomNumber];
     if (!room || room.archivedAt) {
@@ -1784,7 +1824,7 @@ app.post(
 
 app.post(
   "/api/admin/rooms/:roomNumber/unbind",
-  requireRoles([ROLES.SUPER_ADMIN, ROLES.ADMIN], async (req, res) => {
+  requireModuleAction("binding", "manage", async (req, res) => {
     const store = await getStore();
     const room = store.rooms[req.params.roomNumber];
     if (!room || room.archivedAt) {
@@ -1824,7 +1864,7 @@ app.post(
 
 app.post(
   "/api/admin/rooms/:roomNumber/override",
-  requireRoles([ROLES.SUPER_ADMIN, ROLES.ADMIN], async (req, res) => {
+  requireModuleAction("rooms", "manage", async (req, res) => {
     const store = await getStore();
     const room = store.rooms[req.params.roomNumber];
     if (!room || room.archivedAt) {
@@ -1856,7 +1896,7 @@ app.post(
 
 app.delete(
   "/api/admin/rooms/:roomNumber",
-  requireRoles([ROLES.SUPER_ADMIN, ROLES.ADMIN], async (req, res) => {
+  requireModuleAction("rooms", "delete", async (req, res) => {
     const store = await getStore();
     const roomNumber = `${req.params.roomNumber || ""}`.trim();
     const room = store.rooms[roomNumber];
@@ -1923,7 +1963,7 @@ app.delete(
 
 app.get(
   "/api/admin/menus",
-  requireRoles([ROLES.SUPER_ADMIN, ROLES.ADMIN], async (_, res) => {
+  requireModuleAction("menus", "view", async (_, res) => {
     const store = await getStore();
     res.json({ meals: activeMeals(store) });
   })
@@ -1931,7 +1971,7 @@ app.get(
 
 app.post(
   "/api/admin/menus/:category/items",
-  requireRoles([ROLES.SUPER_ADMIN, ROLES.ADMIN], async (req, res) => {
+  requireModuleAction("menus", "create", async (req, res) => {
     const category = `${req.params.category || ""}`.trim();
     if (!MEAL_CATEGORIES.includes(category)) {
       return res.status(400).json({ error: "Invalid menu category" });
@@ -1964,7 +2004,7 @@ app.post(
 
 app.patch(
   "/api/admin/menus/:category/items/:itemId",
-  requireRoles([ROLES.SUPER_ADMIN, ROLES.ADMIN], async (req, res) => {
+  requireModuleAction("menus", "edit", async (req, res) => {
     const category = `${req.params.category || ""}`.trim();
     if (!MEAL_CATEGORIES.includes(category)) {
       return res.status(400).json({ error: "Invalid menu category" });
@@ -1999,7 +2039,7 @@ app.patch(
 
 app.delete(
   "/api/admin/menus/:category/items/:itemId",
-  requireRoles([ROLES.SUPER_ADMIN, ROLES.ADMIN], async (req, res) => {
+  requireModuleAction("menus", "delete", async (req, res) => {
     const category = `${req.params.category || ""}`.trim();
     if (!MEAL_CATEGORIES.includes(category)) {
       return res.status(400).json({ error: "Invalid menu category" });
@@ -2035,7 +2075,7 @@ app.delete(
 
 app.post(
   "/api/admin/bind",
-  requireRoles([ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.RECEPTIONIST], async (req, res) => {
+  requireModuleAction("binding", "create", async (req, res) => {
     const store = await getStore();
     const activationCode = `${req.body.activationCode || ""}`.trim().toUpperCase();
     const roomNumber = `${req.body.roomNumber || ""}`.trim();
@@ -2098,7 +2138,7 @@ app.post(
 
 app.get(
   "/api/admin/assets",
-  requireRoles([ROLES.SUPER_ADMIN, ROLES.ADMIN], async (_, res) => {
+  requireModuleAction("content", "view", async (_, res) => {
     const store = await getStore();
     res.json({ assets: buildAssetEntries(store) });
   })
@@ -2106,7 +2146,7 @@ app.get(
 
 app.post(
   "/api/admin/upload",
-  requireRoles([ROLES.SUPER_ADMIN, ROLES.ADMIN], async (req, res) => {
+  requireModuleAction("content", "create", async (req, res) => {
     await new Promise((resolve, reject) => {
       upload.single("file")(req, res, (error) => {
         if (error) {
@@ -2145,7 +2185,7 @@ app.post(
 
 app.delete(
   "/api/admin/assets/:assetId",
-  requireRoles([ROLES.SUPER_ADMIN, ROLES.ADMIN], async (req, res) => {
+  requireModuleAction("content", "delete", async (req, res) => {
     const store = await getStore();
     const asset = buildAssetEntries(store).find((entry) => entry.id === req.params.assetId);
     if (!asset) {

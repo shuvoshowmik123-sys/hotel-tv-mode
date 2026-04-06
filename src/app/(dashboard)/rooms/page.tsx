@@ -6,7 +6,7 @@ import { BentoCard } from "../../../components/BentoCard";
 import { PillButton, StatusPill } from "../../../components/UIElements";
 import { ConfirmModal } from "../../../components/ConfirmModal";
 import { api } from "../../../lib/api";
-import { canManageRoomOverrides, isRoomManagementReadOnly } from "../../../lib/permissions";
+import { canManageRoomOverrides, canModuleAction, isRoomManagementReadOnly } from "../../../lib/permissions";
 
 function roomStatusTone(status?: string): "occupied" | "vacant" | "warning" | "default" {
     if (status === "occupied") return "occupied";
@@ -57,8 +57,14 @@ export default function RoomsPage() {
     );
 
     const selectedRoom: any = rooms.find((room: any) => room.roomNumber === selectedRoomId) || null;
-    const roomReadOnly = isRoomManagementReadOnly(data?.currentUser?.role);
-    const canManageRooms = canManageRoomOverrides(data?.currentUser?.role);
+    const currentRole = data?.currentUser?.role;
+    const roomReadOnly = isRoomManagementReadOnly(currentRole);
+    const canCreateRooms = canModuleAction(currentRole, "rooms", "create");
+    const canEditRooms = canModuleAction(currentRole, "rooms", "edit");
+    const canDeleteRooms = canModuleAction(currentRole, "rooms", "delete");
+    const canManageRooms = canManageRoomOverrides(currentRole);
+    const canManageBindings = canModuleAction(currentRole, "binding", "manage");
+    const canManageSessions = canModuleAction(currentRole, "sessions", "manage") || canModuleAction(currentRole, "sessions", "delete");
 
     useEffect(() => {
         if (!rooms.length) {
@@ -92,7 +98,7 @@ export default function RoomsPage() {
                     title="Room Inventory"
                     eyebrow="Room Status Overview"
                     actions={
-                        !roomReadOnly && (
+                        canCreateRooms && (
                             <PillButton primary onClick={() => {
                                 setIsAddingRoom(true);
                                 setNewRoomNumber("");
@@ -178,13 +184,13 @@ export default function RoomsPage() {
                                     <div className="text-sm text-luxury-800/50">
                                         Reception can review room status here. Guest check-in, session edits, and checkout are available in Guest Sessions.
                                     </div>
-                                    {selectedRoom.guestName && (
+                                    {selectedRoom.guestName && canManageSessions && (
                                         <div className="flex justify-end">
                                             <PillButton type="button" onClick={() => setCheckoutTarget(selectedRoom)}>Checkout Room</PillButton>
                                         </div>
                                     )}
                                 </div>
-                            ) : (
+                            ) : canEditRooms ? (
                                 <form
                                     key={selectedRoom.roomNumber}
                                     className="space-y-4 pt-6 border-t border-luxury-100"
@@ -227,41 +233,47 @@ export default function RoomsPage() {
                                         <textarea name="welcomeNote" defaultValue={selectedRoom.welcomeNote || ""} rows={2} className="w-full bg-luxury-50 border border-luxury-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold-500/50 resize-none" />
                                     </div>
                                     <div className="flex flex-wrap justify-end gap-3 pt-2">
-                                        {selectedRoom.guestName && (
+                                        {selectedRoom.guestName && canManageSessions && (
                                             <PillButton type="button" onClick={() => setCheckoutTarget(selectedRoom)}>Checkout</PillButton>
                                         )}
-                                        {canManageRooms && (
+                                        {canManageBindings && (
                                             <PillButton type="button" onClick={() => setUnbindTarget(selectedRoom)} disabled={!selectedRoom.deviceId}>
                                                 Unbind TV
                                             </PillButton>
                                         )}
-                                        {canManageRooms && (
+                                        {canDeleteRooms && (
                                             <PillButton type="button" onClick={() => setDeleteTarget(selectedRoom)}>
                                                 Delete / Archive
                                             </PillButton>
                                         )}
-                                        <PillButton
-                                            type="button"
-                                            primary={!selectedRoom.overrideEnabled}
-                                            onClick={async () => {
-                                                setMessage("");
-                                                try {
-                                                    await api(`/api/admin/rooms/${encodeURIComponent(selectedRoom.roomNumber)}/override`, {
-                                                        method: "POST",
-                                                        body: JSON.stringify({ enabled: !selectedRoom.overrideEnabled, customContentLabel: "" })
-                                                    });
-                                                    setMessage(`${selectedRoom.overrideEnabled ? "Disabled" : "Enabled"} override for room ${selectedRoom.roomNumber}.`);
-                                                    await load();
-                                                } catch (error: any) {
-                                                    setMessage(error.message || "Failed to change room override.");
-                                                }
-                                            }}
-                                        >
-                                            {selectedRoom.overrideEnabled ? "Disable Override" : "Enable Override"}
-                                        </PillButton>
+                                        {canManageRooms && (
+                                            <PillButton
+                                                type="button"
+                                                primary={!selectedRoom.overrideEnabled}
+                                                onClick={async () => {
+                                                    setMessage("");
+                                                    try {
+                                                        await api(`/api/admin/rooms/${encodeURIComponent(selectedRoom.roomNumber)}/override`, {
+                                                            method: "POST",
+                                                            body: JSON.stringify({ enabled: !selectedRoom.overrideEnabled, customContentLabel: "" })
+                                                        });
+                                                        setMessage(`${selectedRoom.overrideEnabled ? "Disabled" : "Enabled"} override for room ${selectedRoom.roomNumber}.`);
+                                                        await load();
+                                                    } catch (error: any) {
+                                                        setMessage(error.message || "Failed to change room override.");
+                                                    }
+                                                }}
+                                            >
+                                                {selectedRoom.overrideEnabled ? "Disable Override" : "Enable Override"}
+                                            </PillButton>
+                                        )}
                                         <PillButton primary type="submit">Save Changes</PillButton>
                                     </div>
                                 </form>
+                            ) : (
+                                <div className="pt-6 border-t border-luxury-100 text-sm text-luxury-800/50">
+                                    This role can view room details here, but room editing is managed by higher-level staff.
+                                </div>
                             )}
                         </div>
                     ) : (

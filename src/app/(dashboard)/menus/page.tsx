@@ -5,6 +5,7 @@ import { BentoCard } from "../../../components/BentoCard";
 import { PillButton, StatusPill } from "../../../components/UIElements";
 import { ConfirmModal } from "../../../components/ConfirmModal";
 import { api } from "../../../lib/api";
+import { canModuleAction } from "../../../lib/permissions";
 
 type Category = "breakfast" | "lunch" | "dinner" | "beverages";
 
@@ -68,6 +69,10 @@ export default function MenusPage() {
     if (loading) return <div>Loading...</div>;
 
     const items = data.meals?.[tab] || [];
+    const currentRole = data?.currentUser?.role;
+    const canCreateItems = canModuleAction(currentRole, "menus", "create");
+    const canEditItems = canModuleAction(currentRole, "menus", "edit");
+    const canDeleteItems = canModuleAction(currentRole, "menus", "delete");
 
     return (
         <div className="space-y-6">
@@ -82,7 +87,7 @@ export default function MenusPage() {
                     title="Menu Catalog"
                     eyebrow="Breakfast, Lunch, Dinner, and Beverages"
                     actions={
-                        <PillButton primary onClick={() => setEditingItem({ available: true })}>Add New Item</PillButton>
+                        canCreateItems ? <PillButton primary onClick={() => setEditingItem({ available: true })}>Add New Item</PillButton> : null
                     }
                 >
                     <div className="flex gap-2 mb-6 mt-4 flex-wrap">
@@ -128,8 +133,8 @@ export default function MenusPage() {
                                         </td>
                                         <td className="py-4 text-right">
                                             <div className="flex justify-end gap-2">
-                                                <PillButton onClick={() => setEditingItem(item)} className="!py-1.5 !px-4 !text-xs">Edit</PillButton>
-                                                <PillButton onClick={() => setDeleteTarget(item)} className="!py-1.5 !px-4 !text-xs">Delete</PillButton>
+                                                {canEditItems && <PillButton onClick={() => setEditingItem(item)} className="!py-1.5 !px-4 !text-xs">Edit</PillButton>}
+                                                {canDeleteItems && <PillButton onClick={() => setDeleteTarget(item)} className="!py-1.5 !px-4 !text-xs">Delete</PillButton>}
                                             </div>
                                         </td>
                                     </tr>
@@ -141,7 +146,7 @@ export default function MenusPage() {
 
                 <div className="space-y-6">
                     <BentoCard title={editingItem?.id ? "Edit Item" : "Add Menu Item"} eyebrow="Menu Form">
-                        {editingItem ? (
+                        {editingItem && (canCreateItems || canEditItems) ? (
                             <form key={editingItem.id || `new-${tab}`} onSubmit={handleSaveItem} className="space-y-4 mt-4">
                                 <input type="hidden" name="id" value={editingItem.id || ""} />
                                 <div>
@@ -176,7 +181,7 @@ export default function MenusPage() {
                             </form>
                         ) : (
                             <div className="text-luxury-800/50 h-32 flex justify-center items-center rounded-xl border-2 border-dashed border-luxury-200 mt-4 text-sm font-medium">
-                                Click Add New Item or Edit to start
+                                {canCreateItems || canEditItems ? "Click Add New Item or Edit to start" : "This role can review menu content but cannot change menu items."}
                             </div>
                         )}
                     </BentoCard>

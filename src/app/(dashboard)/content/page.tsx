@@ -5,6 +5,7 @@ import { BentoCard } from "../../../components/BentoCard";
 import { PillButton } from "../../../components/UIElements";
 import { ConfirmModal } from "../../../components/ConfirmModal";
 import { api } from "../../../lib/api";
+import { canModuleAction } from "../../../lib/permissions";
 
 export default function ContentPage() {
     const [data, setData] = useState<any>(null);
@@ -81,6 +82,10 @@ export default function ContentPage() {
     const startupAsset = assets.find((asset: any) => asset.kind === "startup");
     const backgroundAssets = assets.filter((asset: any) => asset.kind === "background");
     const buckets = ["home", "roomService", "foodMenu", "inputs"];
+    const currentRole = data?.currentUser?.role;
+    const canCreateContent = canModuleAction(currentRole, "content", "create");
+    const canEditContent = canModuleAction(currentRole, "content", "edit");
+    const canDeleteContent = canModuleAction(currentRole, "content", "delete");
 
     return (
         <div className="space-y-6">
@@ -92,19 +97,25 @@ export default function ContentPage() {
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <BentoCard title="Startup Asset" eyebrow="Launcher Boot Media">
-                    <form className="mt-4 space-y-4" onSubmit={e => handleUpload(e, "/api/admin/upload?kind=startup")}>
-                        <div className="border-2 border-dashed border-luxury-200 rounded-2xl p-6 text-center hover:bg-luxury-50 transition-colors">
-                            <input type="file" name="file" accept="video/mp4,image/*" className="text-sm text-luxury-800" required />
+                    {canCreateContent ? (
+                        <form className="mt-4 space-y-4" onSubmit={e => handleUpload(e, "/api/admin/upload?kind=startup")}>
+                            <div className="border-2 border-dashed border-luxury-200 rounded-2xl p-6 text-center hover:bg-luxury-50 transition-colors">
+                                <input type="file" name="file" accept="video/mp4,image/*" className="text-sm text-luxury-800" required />
+                            </div>
+                            <PillButton primary type="submit" className="w-full">Upload Startup Asset</PillButton>
+                        </form>
+                    ) : (
+                        <div className="mt-4 rounded-2xl border border-luxury-100 bg-luxury-50/70 p-4 text-sm text-luxury-800/55">
+                            This role can review startup media but cannot upload or replace it.
                         </div>
-                        <PillButton primary type="submit" className="w-full">Upload Startup Asset</PillButton>
-                    </form>
+                    )}
                     <div className="mt-4 text-sm text-luxury-800/60">
                         {startupAsset ? (
                             <div className="space-y-3">
                                 <a href={startupAsset.url} target="_blank" rel="noreferrer" className="block truncate text-gold-600 hover:underline">
                                     {startupAsset.url}
                                 </a>
-                                <PillButton type="button" onClick={() => setDeleteTarget(startupAsset)}>Delete Asset</PillButton>
+                                {canDeleteContent && <PillButton type="button" onClick={() => setDeleteTarget(startupAsset)}>Delete Asset</PillButton>}
                             </div>
                         ) : (
                             "No startup asset has been uploaded yet."
@@ -113,18 +124,24 @@ export default function ContentPage() {
                 </BentoCard>
 
                 <BentoCard title="Background Slideshow" eyebrow="Ambient Media">
-                    <form className="mt-4 space-y-4" onSubmit={e => handleUpload(e, "/api/admin/upload?kind=background")}>
-                        <select name="bucket" className="w-full bg-luxury-50 border border-luxury-200 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-gold-500/50">
-                            <option value="home">Home Screen</option>
-                            <option value="roomService">Room Service</option>
-                            <option value="foodMenu">Food Menu</option>
-                            <option value="inputs">TV Inputs</option>
-                        </select>
-                        <div className="border-2 border-dashed border-luxury-200 rounded-2xl p-6 text-center hover:bg-luxury-50 transition-colors">
-                            <input type="file" name="file" accept="image/*" className="text-sm text-luxury-800" required />
+                    {canCreateContent ? (
+                        <form className="mt-4 space-y-4" onSubmit={e => handleUpload(e, "/api/admin/upload?kind=background")}>
+                            <select name="bucket" className="w-full bg-luxury-50 border border-luxury-200 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-gold-500/50">
+                                <option value="home">Home Screen</option>
+                                <option value="roomService">Room Service</option>
+                                <option value="foodMenu">Food Menu</option>
+                                <option value="inputs">TV Inputs</option>
+                            </select>
+                            <div className="border-2 border-dashed border-luxury-200 rounded-2xl p-6 text-center hover:bg-luxury-50 transition-colors">
+                                <input type="file" name="file" accept="image/*" className="text-sm text-luxury-800" required />
+                            </div>
+                            <PillButton primary type="submit" className="w-full">Upload Background</PillButton>
+                        </form>
+                    ) : (
+                        <div className="mt-4 rounded-2xl border border-luxury-100 bg-luxury-50/70 p-4 text-sm text-luxury-800/55">
+                            Background uploads are limited to roles with content publishing access.
                         </div>
-                        <PillButton primary type="submit" className="w-full">Upload Background</PillButton>
-                    </form>
+                    )}
                 </BentoCard>
 
                 <BentoCard title="Stored Assets" eyebrow="Current Media Library">
@@ -150,9 +167,11 @@ export default function ContentPage() {
                                                     <a href={asset.url} target="_blank" rel="noreferrer" className="truncate text-sm text-gold-600 hover:underline">
                                                         {asset.url}
                                                     </a>
-                                                    <PillButton type="button" className="!py-1.5 !px-3 !text-xs" onClick={() => setDeleteTarget(asset)}>
-                                                        Delete
-                                                    </PillButton>
+                                                    {canDeleteContent && (
+                                                        <PillButton type="button" className="!py-1.5 !px-3 !text-xs" onClick={() => setDeleteTarget(asset)}>
+                                                            Delete
+                                                        </PillButton>
+                                                    )}
                                                 </div>
                                             ))}
                                         </div>
@@ -177,8 +196,9 @@ export default function ContentPage() {
                                     </div>
                                     <button
                                         type="button"
-                                        onClick={() => toggleDestination(key)}
-                                        className={`w-12 h-6 rounded-full transition-colors relative ${isOn ? "bg-gold-500" : "bg-luxury-200"}`}
+                                        onClick={() => canEditContent && toggleDestination(key)}
+                                        disabled={!canEditContent}
+                                        className={`w-12 h-6 rounded-full transition-colors relative ${isOn ? "bg-gold-500" : "bg-luxury-200"} ${canEditContent ? "" : "opacity-60 cursor-not-allowed"}`}
                                     >
                                         <span className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${isOn ? "left-7" : "left-1"}`} />
                                     </button>
@@ -192,24 +212,24 @@ export default function ContentPage() {
                     <form onSubmit={handleConfigUpdate} className="space-y-4 mt-4">
                         <div>
                             <label className="block text-xs font-bold uppercase tracking-wider text-luxury-800/60 mb-1">Hotel Name</label>
-                            <input name="hotelName" defaultValue={data.hotel?.hotelName} className="w-full bg-luxury-50 border border-luxury-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-gold-500/50" />
+                            <input name="hotelName" defaultValue={data.hotel?.hotelName} disabled={!canEditContent} className="w-full bg-luxury-50 border border-luxury-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-gold-500/50 disabled:opacity-60" />
                         </div>
                         <div>
                             <label className="block text-xs font-bold uppercase tracking-wider text-luxury-800/60 mb-1">Help Title</label>
-                            <input name="helpTitle" defaultValue={data.popup?.helpTitle} className="w-full bg-luxury-50 border border-luxury-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-gold-500/50" />
+                            <input name="helpTitle" defaultValue={data.popup?.helpTitle} disabled={!canEditContent} className="w-full bg-luxury-50 border border-luxury-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-gold-500/50 disabled:opacity-60" />
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-xs font-bold uppercase tracking-wider text-luxury-800/60 mb-1">Call Number</label>
-                                <input name="callNumber" defaultValue={data.popup?.callNumber} className="w-full bg-luxury-50 border border-luxury-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-gold-500/50" />
+                                <input name="callNumber" defaultValue={data.popup?.callNumber} disabled={!canEditContent} className="w-full bg-luxury-50 border border-luxury-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-gold-500/50 disabled:opacity-60" />
                             </div>
                             <div>
                                 <label className="block text-xs font-bold uppercase tracking-wider text-luxury-800/60 mb-1">Rating Prompt Text</label>
-                                <input name="ratingText" defaultValue={data.popup?.ratingText} className="w-full bg-luxury-50 border border-luxury-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-gold-500/50" />
+                                <input name="ratingText" defaultValue={data.popup?.ratingText} disabled={!canEditContent} className="w-full bg-luxury-50 border border-luxury-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-gold-500/50 disabled:opacity-60" />
                             </div>
                         </div>
                         <div className="flex justify-end pt-4">
-                            <PillButton primary type="submit">Push Changes to TVs</PillButton>
+                            {canEditContent ? <PillButton primary type="submit">Push Changes to TVs</PillButton> : <span className="text-sm text-luxury-800/50">View only</span>}
                         </div>
                     </form>
                 </BentoCard>

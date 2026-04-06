@@ -1,4 +1,5 @@
 const crypto = require("crypto");
+const { getAllowedRoutes, getPermissionEntries } = require("./permissions");
 
 const ROLES = {
   SUPER_ADMIN: "SUPER_ADMIN",
@@ -36,7 +37,9 @@ function safeUser(user) {
     roleLabel: roleLabel(user.role),
     status: user.status,
     propertyId: user.propertyId,
-    createdAt: user.createdAt
+    createdAt: user.createdAt,
+    allowedRoutes: getAllowedRoutes(user.role),
+    permissions: getPermissionEntries(user.role)
   };
 }
 

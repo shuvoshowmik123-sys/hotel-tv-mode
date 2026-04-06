@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { BentoCard } from "../../../components/BentoCard";
 import { PillButton } from "../../../components/UIElements";
 import { api } from "../../../lib/api";
+import { canModuleAction } from "../../../lib/permissions";
 
 export default function PoliciesPage() {
     const [data, setData] = useState<any>(null);
@@ -32,6 +33,9 @@ export default function PoliciesPage() {
 
     if (loading) return <div>Loading...</div>;
 
+    const currentRole = data?.currentUser?.role;
+    const canEditPolicies = canModuleAction(currentRole, "policies", "edit");
+
     const apps = data.availableApps.map((app: any) => ({
         key: app.packageName, name: app.name, description: app.description,
         on: data.visibility.visibleAppPackages.includes(app.packageName)
@@ -54,8 +58,9 @@ export default function PoliciesPage() {
                                 <div className="text-[10px] uppercase font-mono tracking-wider text-luxury-800/40 mt-1">{item.key}</div>
                             </div>
                             <button
-                                onClick={() => togglePolicy("visibleAppPackages", item.key)}
-                                className={`w-12 h-6 rounded-full transition-colors relative shadow-inner ${item.on ? 'bg-gold-500' : 'bg-luxury-200'}`}
+                                onClick={() => canEditPolicies && togglePolicy("visibleAppPackages", item.key)}
+                                disabled={!canEditPolicies}
+                                className={`w-12 h-6 rounded-full transition-colors relative shadow-inner ${item.on ? 'bg-gold-500' : 'bg-luxury-200'} ${canEditPolicies ? "" : "opacity-60 cursor-not-allowed"}`}
                             >
                                 <span className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all shadow-sm ${item.on ? 'left-7' : 'left-1'}`} />
                             </button>
@@ -74,8 +79,9 @@ export default function PoliciesPage() {
                                     <div className="text-xs text-luxury-800/60 mt-0.5">{item.description}</div>
                                 </div>
                                 <button
-                                    onClick={() => togglePolicy("visibleSourceTitles", item.key)}
-                                    className={`w-12 h-6 rounded-full transition-colors relative shadow-inner ${item.on ? 'bg-gold-500' : 'bg-luxury-200'}`}
+                                    onClick={() => canEditPolicies && togglePolicy("visibleSourceTitles", item.key)}
+                                    disabled={!canEditPolicies}
+                                    className={`w-12 h-6 rounded-full transition-colors relative shadow-inner ${item.on ? 'bg-gold-500' : 'bg-luxury-200'} ${canEditPolicies ? "" : "opacity-60 cursor-not-allowed"}`}
                                 >
                                     <span className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all shadow-sm ${item.on ? 'left-7' : 'left-1'}`} />
                                 </button>
