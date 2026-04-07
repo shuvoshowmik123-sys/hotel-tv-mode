@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import { BentoCard } from "../../../components/BentoCard";
 import { PillButton } from "../../../components/UIElements";
 import { ConfirmModal } from "../../../components/ConfirmModal";
@@ -13,6 +14,7 @@ export default function ContentPage() {
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState("");
     const [deleteTarget, setDeleteTarget] = useState<any>(null);
+    const [previewTarget, setPreviewTarget] = useState<any>(null);
     const [uploadingLabel, setUploadingLabel] = useState("");
     const [startupFileName, setStartupFileName] = useState("");
     const [backgroundFileName, setBackgroundFileName] = useState("");
@@ -133,6 +135,19 @@ export default function ContentPage() {
         }
     };
 
+    const assetDisplayName = (asset: any) => {
+        const source = `${asset?.url || ""}`;
+        if (!source) return "Untitled asset";
+        try {
+            const parsed = new URL(source);
+            const fileName = decodeURIComponent(parsed.pathname.split("/").pop() || "").trim();
+            return fileName || "Untitled asset";
+        } catch {
+            const parts = source.split("/");
+            return decodeURIComponent(parts[parts.length - 1] || source);
+        }
+    };
+
     if (loading) return <div>Loading...</div>;
 
     const assets = data?.assets || [];
@@ -187,9 +202,19 @@ export default function ContentPage() {
                     <div className="mt-4 text-sm text-luxury-800/60">
                         {startupAsset ? (
                             <div className="space-y-3">
-                                <a href={startupAsset.url} target="_blank" rel="noreferrer" className="block truncate text-gold-600 hover:underline">
-                                    {startupAsset.url}
-                                </a>
+                                <button
+                                    type="button"
+                                    onClick={() => setPreviewTarget(startupAsset)}
+                                    className="flex w-full items-center justify-between gap-3 rounded-xl border border-luxury-100 bg-white px-4 py-3 text-left transition-colors hover:bg-luxury-50"
+                                >
+                                    <div className="min-w-0">
+                                        <div className="truncate text-sm font-semibold text-luxury-900">{assetDisplayName(startupAsset)}</div>
+                                        <div className="mt-1 text-xs text-luxury-800/50">Startup media preview</div>
+                                    </div>
+                                    <span className="rounded-full bg-gold-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-gold-700">
+                                        View
+                                    </span>
+                                </button>
                                 {canDeleteContent && <PillButton type="button" onClick={() => setDeleteTarget(startupAsset)}>Delete Asset</PillButton>}
                             </div>
                         ) : (
@@ -261,9 +286,14 @@ export default function ContentPage() {
                                         <div className="space-y-2">
                                             {bucketEntries.map((asset: any) => (
                                                 <div key={asset.id} className="flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-2 border border-luxury-100">
-                                                    <a href={asset.url} target="_blank" rel="noreferrer" className="truncate text-sm text-gold-600 hover:underline">
-                                                        {asset.url}
-                                                    </a>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setPreviewTarget(asset)}
+                                                        className="min-w-0 flex-1 text-left"
+                                                    >
+                                                        <div className="truncate text-sm font-semibold text-luxury-900">{assetDisplayName(asset)}</div>
+                                                        <div className="mt-0.5 text-xs text-luxury-800/45">Click to preview inside the panel</div>
+                                                    </button>
                                                     {canDeleteContent && (
                                                         <PillButton type="button" className="!py-1.5 !px-3 !text-xs" onClick={() => setDeleteTarget(asset)}>
                                                             Delete
@@ -351,6 +381,49 @@ export default function ContentPage() {
                     }
                 }}
             />
+
+            <AnimatePresence>
+                {previewTarget && (
+                    <>
+                        <motion.div
+                            className="fixed inset-0 z-40 bg-black/45 backdrop-blur-sm"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setPreviewTarget(null)}
+                        />
+                        <motion.div
+                            className="fixed inset-0 z-50 overflow-y-auto p-4 lg:p-8"
+                            initial={{ opacity: 0, y: 12 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: 12 }}
+                        >
+                            <div className="mx-auto max-w-5xl" onClick={(event) => event.stopPropagation()}>
+                                <BentoCard title="Asset Preview" eyebrow={previewTarget.kind === "startup" ? "Startup media" : `${previewTarget.bucket} background`}>
+                                    <div className="mt-4 space-y-4">
+                                        <div className="flex flex-wrap items-center justify-between gap-3">
+                                            <div>
+                                                <div className="text-lg font-semibold text-luxury-900">{assetDisplayName(previewTarget)}</div>
+                                                <div className="text-sm text-luxury-800/55">
+                                                    This preview stays inside the central admin panel and does not expose the raw storage link.
+                                                </div>
+                                            </div>
+                                            <PillButton type="button" onClick={() => setPreviewTarget(null)}>Close</PillButton>
+                                        </div>
+                                        <div className="overflow-hidden rounded-[28px] border border-luxury-100 bg-luxury-50 p-3 shadow-[0_18px_44px_-30px_rgba(0,0,0,0.18)]">
+                                            <img
+                                                src={previewTarget.url}
+                                                alt={assetDisplayName(previewTarget)}
+                                                className="h-auto max-h-[70vh] w-full rounded-[22px] object-contain bg-white"
+                                            />
+                                        </div>
+                                    </div>
+                                </BentoCard>
+                            </div>
+                        </motion.div>
+                    </>
+                )}
+            </AnimatePresence>
         </div>
     );
 }
