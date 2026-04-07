@@ -38,6 +38,23 @@ const {
 } = require("./lib/auth");
 const { canModuleAction } = require("./lib/permissions");
 
+// ─── Firebase Admin SDK (optional — FCM push-to-TV on admin save) ──────────────
+let firebaseAdmin = null;
+try {
+  const FIREBASE_SA_JSON = process.env.FIREBASE_SERVICE_ACCOUNT_JSON || "";
+  if (FIREBASE_SA_JSON) {
+    const adminSdk = require("firebase-admin");
+    if (!adminSdk.apps.length) {
+      adminSdk.initializeApp({
+        credential: adminSdk.credential.cert(JSON.parse(FIREBASE_SA_JSON))
+      });
+    }
+    firebaseAdmin = adminSdk;
+  }
+} catch (fcmInitErr) {
+  console.warn("Firebase Admin SDK init skipped:", fcmInitErr.message);
+}
+
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
 const ROOT = __dirname;
@@ -463,6 +480,7 @@ async function ensureDatabase() {
     ALTER TABLE device_bindings ADD COLUMN IF NOT EXISTS revoked_at TIMESTAMPTZ;
     ALTER TABLE device_status_reports ADD COLUMN IF NOT EXISTS cached_sync_version INTEGER NOT NULL DEFAULT 0;
     ALTER TABLE device_status_reports ADD COLUMN IF NOT EXISTS security_flags JSONB NOT NULL DEFAULT '[]'::jsonb;
+    ALTER TABLE device_status_reports ADD COLUMN IF NOT EXISTS fcm_token TEXT;
   `);
 
   const existing = await pool.query(
@@ -548,17 +566,35 @@ async function saveStore(store) {
     const state = readFileState();
     state.store = nextStore;
     writeFileState(state);
+    pushFcmRefresh().catch(() => { });
     return nextStore;
   }
 
   await pool.query(
-    `INSERT INTO launcher_store (store_key, data, updated_at)
-     VALUES ('global', $1::jsonb, NOW())
-     ON CONFLICT (store_key)
-     DO UPDATE SET data = EXCLUDED.data, updated_at = NOW()`,
+    `INSERT INTO launcher_store (store_key, data, updated_at)\r\n     VALUES ('global', $1::jsonb, NOW())\r\n     ON CONFLICT (store_key)\r\n     DO UPDATE SET data = EXCLUDED.data, updated_at = NOW()`,
     [JSON.stringify(nextStore)]
   );
+  pushFcmRefresh().catch(() => { });
   return nextStore;
+}
+
+/** Send a data-only FCM refresh message to every bound TV that has an FCM token. */
+async function pushFcmRefresh() {
+  if (!firebaseAdmin || !pool) return;
+  const result = await pool.query(
+    "SELECT DISTINCT fcm_token FROM device_status_reports WHERE fcm_token IS NOT NULL AND fcm_token <> ''"
+  );
+  const tokens = result.rows.map((r) => r.fcm_token).filter(Boolean);
+  if (tokens.length === 0) return;
+  // Send in chunks of 500 (FCM multicast limit)
+  for (let i = 0; i < tokens.length; i += 500) {
+    const chunk = tokens.slice(i, i + 500);
+    await firebaseAdmin.messaging().sendEachForMulticast({
+      tokens: chunk,
+      data: { action: "refresh" },
+      android: { priority: "high" }
+    });
+  }
 }
 
 async function listUsers() {
@@ -1147,9 +1183,10 @@ async function saveDeviceStatusReport(report) {
         installed_apps,
         source_inputs,
         security_flags,
+        fcm_token,
         reported_at
       )
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10::jsonb, $11::jsonb, $12)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10::jsonb, $11::jsonb, $12, $13)
      ON CONFLICT (session_token)
      DO UPDATE SET
        room_number = EXCLUDED.room_number,
@@ -1162,6 +1199,7 @@ async function saveDeviceStatusReport(report) {
        installed_apps = EXCLUDED.installed_apps,
        source_inputs = EXCLUDED.source_inputs,
        security_flags = EXCLUDED.security_flags,
+       fcm_token = COALESCE(EXCLUDED.fcm_token, device_status_reports.fcm_token),
        reported_at = EXCLUDED.reported_at`,
     [
       report.sessionToken,
@@ -1175,6 +1213,7 @@ async function saveDeviceStatusReport(report) {
       JSON.stringify(report.installedApps || []),
       JSON.stringify(report.sourceInputs || []),
       JSON.stringify(report.securityFlags || []),
+      report.fcmToken || null,
       report.reportedAt
     ]
   );
@@ -1434,17 +1473,17 @@ async function buildAdminState(user) {
     settings:
       canModuleAction(user.role, "settings", "view")
         ? {
-            property: store.property,
-            integration: {
-              apiKeyPreview: store.property.apiKeyPreview ? "Configured" : "",
-              webhookUrl: PANEL_WEBHOOK_URL ? "Configured" : ""
-            },
-            subscription: {
-              plan: PANEL_SUBSCRIPTION_PLAN || "",
-              renewalDate: PANEL_SUBSCRIPTION_RENEWAL_DATE || "",
-              environment: store.property.environment || ""
-            }
+          property: store.property,
+          integration: {
+            apiKeyPreview: store.property.apiKeyPreview ? "Configured" : "",
+            webhookUrl: PANEL_WEBHOOK_URL ? "Configured" : ""
+          },
+          subscription: {
+            plan: PANEL_SUBSCRIPTION_PLAN || "",
+            renewalDate: PANEL_SUBSCRIPTION_RENEWAL_DATE || "",
+            environment: store.property.environment || ""
           }
+        }
         : null
   };
 }
@@ -2548,11 +2587,11 @@ app.delete(
     store.meals[category] = currentItems.map((item) =>
       item.id === current.id
         ? normalizeMenuItem(category, {
-            ...item,
-            archivedAt: nowIso(),
-            archivedBy: req.currentUser.name,
-            updatedAt: nowIso()
-          })
+          ...item,
+          archivedAt: nowIso(),
+          archivedBy: req.currentUser.name,
+          updatedAt: nowIso()
+        })
         : item
     );
     pushAudit(store, {
