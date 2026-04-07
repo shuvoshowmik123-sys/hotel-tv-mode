@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { BentoCard } from "../../../components/BentoCard";
+import { useFeedback } from "../../../components/FeedbackProvider";
 import { PillButton } from "../../../components/UIElements";
 import { api } from "../../../lib/api";
 import { CLIMATE_CONTROL_OPTIONS, ROOM_CATEGORY_OPTIONS } from "../../../lib/roomOptions";
@@ -27,18 +28,21 @@ const emptyForm: BindingFormState = {
 export default function BindingPage() {
     const [data, setData] = useState<any>(null);
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState("");
     const [bindingMode, setBindingMode] = useState<BindingMode>(null);
     const [selectedPending, setSelectedPending] = useState<any>(null);
     const [form, setForm] = useState(emptyForm);
     const [isBinding, setIsBinding] = useState(false);
-    const [message, setMessage] = useState("");
+    const [formErrors, setFormErrors] = useState<Partial<Record<keyof BindingFormState, string>>>({});
+    const { notify } = useFeedback();
 
     const load = async () => {
+        setLoadError("");
         try {
             const state = await api("/api/admin/state");
             setData(state);
-        } catch (err) {
-            console.error(err);
+        } catch (err: any) {
+            setLoadError(err.message || "Unable to load pending bindings.");
         } finally {
             setLoading(false);
         }
@@ -60,7 +64,7 @@ export default function BindingPage() {
         setBindingMode("manual");
         setSelectedPending(null);
         setForm({ ...emptyForm });
-        setMessage("");
+        setFormErrors({});
     };
 
     const activatePendingBinding = (item: any) => {
@@ -70,29 +74,42 @@ export default function BindingPage() {
             ...emptyForm,
             activationCode: item.activationCode || "",
         });
-        setMessage("");
+        setFormErrors({});
     };
 
     const closeComposer = () => {
         setBindingMode(null);
         setSelectedPending(null);
         setForm({ ...emptyForm });
+        setFormErrors({});
+    };
+
+    const validateForm = () => {
+        const nextErrors: Partial<Record<keyof BindingFormState, string>> = {};
+        if (!form.activationCode.trim()) nextErrors.activationCode = "Activation code is required.";
+        if (!form.roomNumber.trim()) nextErrors.roomNumber = "Room number is required.";
+        if (!form.floor.trim()) nextErrors.floor = "Floor is required.";
+        setFormErrors(nextErrors);
+        return Object.keys(nextErrors).length === 0;
     };
 
     const handleBind = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!validateForm()) {
+            notify({ tone: "warning", message: "Please complete the room assignment fields before binding." });
+            return;
+        }
         setIsBinding(true);
-        setMessage("");
         try {
             await api("/api/admin/bind", {
                 method: "POST",
                 body: JSON.stringify(form)
             });
-            setMessage("Binding confirmed successfully.");
+            notify({ tone: "success", message: "Binding confirmed successfully." });
             closeComposer();
             await load();
         } catch (err: any) {
-            setMessage(err.message || "Failed to bind");
+            notify({ tone: "error", message: err.message || "Failed to bind" });
         } finally {
             setIsBinding(false);
         }
@@ -102,11 +119,7 @@ export default function BindingPage() {
 
     return (
         <div className="space-y-6">
-            {message && (
-                <div className={`rounded-2xl px-4 py-3 text-sm ${message.includes("Failed") ? "bg-red-50 text-red-700" : "bg-green-50 text-green-700"}`}>
-                    {message}
-                </div>
-            )}
+            {loadError && <div className="page-inline-error">{loadError}</div>}
 
             <div className="grid grid-cols-1 xl:grid-cols-[1.2fr_0.8fr] gap-6">
                 <BentoCard title="Pending Bindings" eyebrow="Step 1 - Choose a Device">
@@ -191,11 +204,15 @@ export default function BindingPage() {
                                         <input
                                             value={form.activationCode}
                                             readOnly={bindingMode === "pending"}
-                                            onChange={(e) => setForm((current) => ({ ...current, activationCode: e.target.value.toUpperCase() }))}
+                                            onChange={(e) => {
+                                                setForm((current) => ({ ...current, activationCode: e.target.value.toUpperCase() }));
+                                                setFormErrors((current) => ({ ...current, activationCode: "" }));
+                                            }}
                                             className={`w-full rounded-xl px-4 py-3 text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-gold-500/50 ${bindingMode === "pending" ? "bg-luxury-100 border border-luxury-200 text-luxury-700 cursor-not-allowed" : "bg-luxury-50 border border-luxury-200 focus:border-gold-500"}`}
                                             placeholder="e.g. 1Q2W3E"
                                             required
                                         />
+                                        {formErrors.activationCode && <div className="field-error">{formErrors.activationCode}</div>}
                                     </div>
 
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -203,21 +220,29 @@ export default function BindingPage() {
                                             <label className="block text-xs font-bold uppercase tracking-wider text-luxury-800/60 mb-1">Room Number</label>
                                             <input
                                                 value={form.roomNumber}
-                                                onChange={(e) => setForm((current) => ({ ...current, roomNumber: e.target.value }))}
+                                                onChange={(e) => {
+                                                    setForm((current) => ({ ...current, roomNumber: e.target.value }));
+                                                    setFormErrors((current) => ({ ...current, roomNumber: "" }));
+                                                }}
                                                 className="w-full bg-luxury-50 border border-luxury-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-gold-500/50 focus:border-gold-500 transition-colors"
                                                 placeholder="e.g. 1205"
                                                 required
                                             />
+                                            {formErrors.roomNumber && <div className="field-error">{formErrors.roomNumber}</div>}
                                         </div>
                                         <div>
                                             <label className="block text-xs font-bold uppercase tracking-wider text-luxury-800/60 mb-1">Floor</label>
                                             <input
                                                 value={form.floor}
-                                                onChange={(e) => setForm((current) => ({ ...current, floor: e.target.value }))}
+                                                onChange={(e) => {
+                                                    setForm((current) => ({ ...current, floor: e.target.value }));
+                                                    setFormErrors((current) => ({ ...current, floor: "" }));
+                                                }}
                                                 className="w-full bg-luxury-50 border border-luxury-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-gold-500/50 focus:border-gold-500 transition-colors"
                                                 placeholder="e.g. 12"
                                                 required
                                             />
+                                            {formErrors.floor && <div className="field-error">{formErrors.floor}</div>}
                                         </div>
                                     </div>
 

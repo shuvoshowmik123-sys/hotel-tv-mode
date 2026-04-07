@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { DM_Sans, DM_Mono } from "next/font/google";
+import { FeedbackProvider } from "../components/FeedbackProvider";
 import { LenisProvider } from "../components/LenisProvider";
 import "./globals.css";
 
@@ -32,9 +33,11 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${dmSans.variable} ${dmMono.variable} antialiased min-h-screen`}>
-        <LenisProvider>
-          {children}
-        </LenisProvider>
+        <FeedbackProvider>
+          <LenisProvider>
+            {children}
+          </LenisProvider>
+        </FeedbackProvider>
       </body>
     </html>
   );

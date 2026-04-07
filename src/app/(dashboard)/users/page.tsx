@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { BentoCard } from "../../../components/BentoCard";
+import { useFeedback } from "../../../components/FeedbackProvider";
 import { PillButton } from "../../../components/UIElements";
 import { ConfirmModal } from "../../../components/ConfirmModal";
 import { api } from "../../../lib/api";
@@ -24,15 +25,17 @@ export default function UsersPage() {
     const [showForm, setShowForm] = useState(false);
     const [editingUser, setEditingUser] = useState<any>(null);
     const [deleteTarget, setDeleteTarget] = useState<any>(null);
-    const [message, setMessage] = useState("");
+    const [loadError, setLoadError] = useState("");
     const [formRole, setFormRole] = useState<UserRole>("RECEPTIONIST");
+    const { notify } = useFeedback();
 
     const load = async () => {
+        setLoadError("");
         try {
             const state = await api("/api/admin/state");
             setData(state);
-        } catch (err) {
-            console.error(err);
+        } catch (err: any) {
+            setLoadError(err.message || "Unable to load user accounts.");
         } finally {
             setLoading(false);
         }
@@ -54,7 +57,6 @@ export default function UsersPage() {
 
     const handleSaveUser = async (e: React.FormEvent) => {
         e.preventDefault();
-        setMessage("");
         const rawForm = Object.fromEntries(new FormData(e.currentTarget as HTMLFormElement));
         const form = Object.fromEntries(
             Object.entries(rawForm).filter(([, value]) => `${value ?? ""}`.trim() !== "")
@@ -63,16 +65,16 @@ export default function UsersPage() {
         try {
             if (form.id) {
                 await api(`/api/admin/users/${form.id}`, { method: "PATCH", body: JSON.stringify(form) });
-                setMessage(`Updated account for ${form.name || editingUser?.name || "user"}.`);
+                notify({ tone: "success", message: `Updated account for ${form.name || editingUser?.name || "user"}.` });
             } else {
                 await api("/api/admin/users", { method: "POST", body: JSON.stringify(form) });
-                setMessage(`Created account for ${form.name || "user"}.`);
+                notify({ tone: "success", message: `Created account for ${form.name || "user"}.` });
             }
             setShowForm(false);
             setEditingUser(null);
             await load();
         } catch (error: any) {
-            setMessage(error.message || "Failed to save user.");
+            notify({ tone: "error", message: error.message || "Failed to save user." });
         }
     };
 
@@ -85,11 +87,7 @@ export default function UsersPage() {
 
     return (
         <div className="space-y-6 max-w-6xl mx-auto">
-            {message && (
-                <div className={`rounded-2xl px-4 py-3 text-sm ${message.includes("Failed") ? "bg-red-50 text-red-700" : "bg-green-50 text-green-700"}`}>
-                    {message}
-                </div>
-            )}
+            {loadError && <div className="page-inline-error">{loadError}</div>}
 
             {showForm && (
                 <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.25fr)_minmax(360px,0.95fr)] gap-6">
@@ -253,7 +251,7 @@ export default function UsersPage() {
                     if (!deleteTarget) return;
                     try {
                         await api(`/api/admin/users/${deleteTarget.id}`, { method: "DELETE" });
-                        setMessage(`Archived account for ${deleteTarget.name}.`);
+                        notify({ tone: "success", message: `Archived account for ${deleteTarget.name}.` });
                         setDeleteTarget(null);
                         if (editingUser?.id === deleteTarget.id) {
                             setEditingUser(null);
@@ -261,7 +259,7 @@ export default function UsersPage() {
                         }
                         await load();
                     } catch (error: any) {
-                        setMessage(error.message || "Failed to archive user.");
+                        notify({ tone: "error", message: error.message || "Failed to archive user." });
                         setDeleteTarget(null);
                     }
                 }}

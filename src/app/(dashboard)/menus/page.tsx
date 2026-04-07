@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { BentoCard } from "../../../components/BentoCard";
+import { useFeedback } from "../../../components/FeedbackProvider";
 import { PillButton, StatusPill } from "../../../components/UIElements";
 import { ConfirmModal } from "../../../components/ConfirmModal";
 import { api } from "../../../lib/api";
@@ -17,14 +18,16 @@ export default function MenusPage() {
     const [tab, setTab] = useState<Category>("breakfast");
     const [editingItem, setEditingItem] = useState<any>(null);
     const [deleteTarget, setDeleteTarget] = useState<any>(null);
-    const [message, setMessage] = useState("");
+    const [loadError, setLoadError] = useState("");
+    const { notify } = useFeedback();
 
     const load = async () => {
+        setLoadError("");
         try {
             const state = await api("/api/admin/state");
             setData(state);
-        } catch (err) {
-            console.error(err);
+        } catch (err: any) {
+            setLoadError(err.message || "Unable to load menu catalog.");
         } finally {
             setLoading(false);
         }
@@ -34,7 +37,6 @@ export default function MenusPage() {
 
     const handleSaveItem = async (e: React.FormEvent) => {
         e.preventDefault();
-        setMessage("");
         const fd = new FormData(e.currentTarget as HTMLFormElement);
         const itemId = `${fd.get("id") || ""}`.trim();
         const payload = {
@@ -51,18 +53,18 @@ export default function MenusPage() {
                     method: "PATCH",
                     body: JSON.stringify(payload)
                 });
-                setMessage(`Updated ${tab} menu item.`);
+                notify({ tone: "success", message: `Updated ${tab} menu item.` });
             } else {
                 await api(`/api/admin/menus/${tab}/items`, {
                     method: "POST",
                     body: JSON.stringify(payload)
                 });
-                setMessage(`Created ${tab} menu item.`);
+                notify({ tone: "success", message: `Created ${tab} menu item.` });
             }
             setEditingItem(null);
             await load();
         } catch (error: any) {
-            setMessage(error.message || "Failed to save menu item.");
+            notify({ tone: "error", message: error.message || "Failed to save menu item." });
         }
     };
 
@@ -76,11 +78,7 @@ export default function MenusPage() {
 
     return (
         <div className="space-y-6">
-            {message && (
-                <div className={`rounded-2xl px-4 py-3 text-sm ${message.includes("Failed") ? "bg-red-50 text-red-700" : "bg-green-50 text-green-700"}`}>
-                    {message}
-                </div>
-            )}
+            {loadError && <div className="page-inline-error">{loadError}</div>}
 
             <div className="grid grid-cols-1 xl:grid-cols-[2fr_1fr] gap-6">
                 <BentoCard
@@ -198,14 +196,14 @@ export default function MenusPage() {
                     if (!deleteTarget) return;
                     try {
                         await api(`/api/admin/menus/${tab}/items/${deleteTarget.id}`, { method: "DELETE" });
-                        setMessage(`Archived ${deleteTarget.title}.`);
+                        notify({ tone: "success", message: `Archived ${deleteTarget.title}.` });
                         setDeleteTarget(null);
                         if (editingItem?.id === deleteTarget.id) {
                             setEditingItem(null);
                         }
                         await load();
                     } catch (error: any) {
-                        setMessage(error.message || "Failed to delete menu item.");
+                        notify({ tone: "error", message: error.message || "Failed to delete menu item." });
                         setDeleteTarget(null);
                     }
                 }}

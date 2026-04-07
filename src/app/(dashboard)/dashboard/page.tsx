@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { motion, animate } from "motion/react";
 import { BentoCard } from "../../../components/BentoCard";
+import { useFeedback } from "../../../components/FeedbackProvider";
 import { SkeletonStatCard, SkeletonCard } from "../../../components/SkeletonCard";
 import { api } from "../../../lib/api";
 import { PillButton } from "../../../components/UIElements";
@@ -43,7 +44,7 @@ export default function DashboardPage() {
     const [loading, setLoading] = useState(true);
     const [quickRoomNumber, setQuickRoomNumber] = useState("");
     const [quickGuestName, setQuickGuestName] = useState("");
-    const [quickMessage, setQuickMessage] = useState("");
+    const { notify } = useFeedback();
 
     useEffect(() => {
         api("/api/admin/state").then(setData).catch(console.error).finally(() => setLoading(false));
@@ -83,7 +84,6 @@ export default function DashboardPage() {
 
     const receptionistQuickCheckIn = async (e: React.FormEvent) => {
         e.preventDefault();
-        setQuickMessage("");
         try {
             await api(`/api/admin/rooms/${encodeURIComponent(quickRoomNumber.trim())}/checkin`, {
                 method: "POST",
@@ -91,13 +91,13 @@ export default function DashboardPage() {
                     guestName: quickGuestName,
                 }),
             });
-            setQuickMessage("Guest session saved.");
+            notify({ tone: "success", message: "Guest session saved." });
             setQuickRoomNumber("");
             setQuickGuestName("");
             const nextState = await api("/api/admin/state");
             setData(nextState);
         } catch (error: any) {
-            setQuickMessage(error.message || "Unable to save guest session.");
+            notify({ tone: "error", message: error.message || "Unable to save guest session." });
         }
     };
 
@@ -142,11 +142,6 @@ export default function DashboardPage() {
                                 <label className="block text-xs font-bold uppercase tracking-wider text-luxury-800/60 mb-1">Guest Name</label>
                                 <input value={quickGuestName} onChange={(event) => setQuickGuestName(event.target.value)} className="w-full bg-luxury-50 border border-luxury-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-gold-500/50" placeholder="Guest Name" />
                             </div>
-                            {quickMessage && (
-                                <div className={`text-sm p-3 rounded-lg ${quickMessage.includes("saved") ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>
-                                    {quickMessage}
-                                </div>
-                            )}
                             <div className="flex justify-end pt-2">
                                 <PillButton primary type="submit">Check In</PillButton>
                             </div>

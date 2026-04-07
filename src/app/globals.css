@@ -253,4 +253,21 @@
     border-color: #C9A84C;
     box-shadow: 0 0 0 3px rgb(201 168 76 / 0.15), inset 0 1px 3px rgb(0 0 0 / 0.04);
   }
+
+  .field-error {
+    margin-top: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #b91c1c;
+  }
+
+  .page-inline-error {
+    border: 1px solid #fecaca;
+    background: #fef2f2;
+    color: #991b1b;
+    border-radius: 20px;
+    padding: 14px 16px;
+    font-size: 14px;
+    font-weight: 600;
+  }
 }

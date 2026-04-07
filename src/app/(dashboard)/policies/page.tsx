@@ -2,20 +2,23 @@
 
 import React, { useEffect, useState } from "react";
 import { BentoCard } from "../../../components/BentoCard";
-import { PillButton } from "../../../components/UIElements";
+import { useFeedback } from "../../../components/FeedbackProvider";
 import { api } from "../../../lib/api";
 import { canModuleAction } from "../../../lib/permissions";
 
 export default function PoliciesPage() {
     const [data, setData] = useState<any>(null);
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState("");
+    const { notify } = useFeedback();
 
     const load = async () => {
+        setLoadError("");
         try {
             const state = await api("/api/admin/state");
             setData(state);
-        } catch (err) {
-            console.error(err);
+        } catch (err: any) {
+            setLoadError(err.message || "Unable to load app and input policies.");
         } finally {
             setLoading(false);
         }
@@ -24,11 +27,17 @@ export default function PoliciesPage() {
     useEffect(() => { load(); }, []);
 
     const togglePolicy = async (type: "visibleAppPackages" | "visibleSourceTitles", key: string) => {
-        const visibility = structuredClone(data.visibility);
-        const list = visibility[type];
-        visibility[type] = list.includes(key) ? list.filter((v: string) => v !== key) : [...list, key];
-        await api("/api/admin/config", { method: "POST", body: JSON.stringify({ visibility }) });
-        load();
+        try {
+            const visibility = structuredClone(data.visibility);
+            const list = visibility[type];
+            const enabling = !list.includes(key);
+            visibility[type] = enabling ? [...list, key] : list.filter((v: string) => v !== key);
+            await api("/api/admin/config", { method: "POST", body: JSON.stringify({ visibility }) });
+            notify({ tone: "success", message: `${key} ${enabling ? "enabled" : "hidden"} successfully.` });
+            load();
+        } catch (error: any) {
+            notify({ tone: "error", message: error.message || "Failed to update policy." });
+        }
     };
 
     if (loading) return <div>Loading...</div>;
@@ -47,27 +56,29 @@ export default function PoliciesPage() {
     }));
 
     return (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <BentoCard title="App Visibility" eyebrow="Installed App Policy">
-                <div className="mt-4 space-y-2">
-                    {apps.map((item: any) => (
-                        <div key={item.key} className="flex justify-between items-center p-4 border border-luxury-100 rounded-xl bg-luxury-50 hover:bg-luxury-100 transition-colors">
-                            <div>
-                                <div className="font-medium text-luxury-900">{item.name}</div>
-                                <div className="text-xs text-luxury-800/60 mt-0.5">{item.description}</div>
-                                <div className="text-[10px] uppercase font-mono tracking-wider text-luxury-800/40 mt-1">{item.key}</div>
+        <div className="space-y-6">
+            {loadError && <div className="page-inline-error">{loadError}</div>}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <BentoCard title="App Visibility" eyebrow="Installed App Policy">
+                    <div className="mt-4 space-y-2">
+                        {apps.map((item: any) => (
+                            <div key={item.key} className="flex justify-between items-center p-4 border border-luxury-100 rounded-xl bg-luxury-50 hover:bg-luxury-100 transition-colors">
+                                <div>
+                                    <div className="font-medium text-luxury-900">{item.name}</div>
+                                    <div className="text-xs text-luxury-800/60 mt-0.5">{item.description}</div>
+                                    <div className="text-[10px] uppercase font-mono tracking-wider text-luxury-800/40 mt-1">{item.key}</div>
+                                </div>
+                                <button
+                                    onClick={() => canEditPolicies && togglePolicy("visibleAppPackages", item.key)}
+                                    disabled={!canEditPolicies}
+                                    className={`w-12 h-6 rounded-full transition-colors relative shadow-inner ${item.on ? 'bg-gold-500' : 'bg-luxury-200'} ${canEditPolicies ? "" : "opacity-60 cursor-not-allowed"}`}
+                                >
+                                    <span className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all shadow-sm ${item.on ? 'left-7' : 'left-1'}`} />
+                                </button>
                             </div>
-                            <button
-                                onClick={() => canEditPolicies && togglePolicy("visibleAppPackages", item.key)}
-                                disabled={!canEditPolicies}
-                                className={`w-12 h-6 rounded-full transition-colors relative shadow-inner ${item.on ? 'bg-gold-500' : 'bg-luxury-200'} ${canEditPolicies ? "" : "opacity-60 cursor-not-allowed"}`}
-                            >
-                                <span className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all shadow-sm ${item.on ? 'left-7' : 'left-1'}`} />
-                            </button>
-                        </div>
-                    ))}
-                </div>
-            </BentoCard>
+                        ))}
+                    </div>
+                </BentoCard>
 
             <div className="space-y-6">
                 <BentoCard title="Input Source Visibility" eyebrow="TV Source Policy">
@@ -103,6 +114,7 @@ export default function PoliciesPage() {
                         ))}
                     </div>
                 </BentoCard>
+            </div>
             </div>
         </div>
     );

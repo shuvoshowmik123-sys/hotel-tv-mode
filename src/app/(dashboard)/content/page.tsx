@@ -4,21 +4,24 @@ import React, { useEffect, useState } from "react";
 import { BentoCard } from "../../../components/BentoCard";
 import { PillButton } from "../../../components/UIElements";
 import { ConfirmModal } from "../../../components/ConfirmModal";
+import { useFeedback } from "../../../components/FeedbackProvider";
 import { api } from "../../../lib/api";
 import { canModuleAction } from "../../../lib/permissions";
 
 export default function ContentPage() {
     const [data, setData] = useState<any>(null);
     const [loading, setLoading] = useState(true);
-    const [message, setMessage] = useState("");
+    const [loadError, setLoadError] = useState("");
     const [deleteTarget, setDeleteTarget] = useState<any>(null);
+    const { notify } = useFeedback();
 
     const load = async () => {
+        setLoadError("");
         try {
             const state = await api("/api/admin/state");
             setData(state);
-        } catch (err) {
-            console.error(err);
+        } catch (err: any) {
+            setLoadError(err.message || "Unable to load content settings.");
         } finally {
             setLoading(false);
         }
@@ -28,21 +31,19 @@ export default function ContentPage() {
 
     const handleUpload = async (e: React.FormEvent, endpoint: string) => {
         e.preventDefault();
-        setMessage("");
         try {
             const fd = new FormData(e.currentTarget as HTMLFormElement);
             await api(endpoint, { method: "POST", body: fd });
-            setMessage("Asset uploaded successfully.");
+            notify({ tone: "success", message: "Asset uploaded successfully." });
             (e.currentTarget as HTMLFormElement).reset();
             await load();
         } catch (error: any) {
-            setMessage(error.message || "Failed to upload asset.");
+            notify({ tone: "error", message: error.message || "Failed to upload asset." });
         }
     };
 
     const handleConfigUpdate = async (e: React.FormEvent) => {
         e.preventDefault();
-        setMessage("");
         try {
             const form = Object.fromEntries(new FormData(e.currentTarget as HTMLFormElement));
             await api("/api/admin/config", {
@@ -52,15 +53,14 @@ export default function ContentPage() {
                     popup: { helpTitle: form.helpTitle, callNumber: form.callNumber, ratingText: form.ratingText }
                 })
             });
-            setMessage("Guest-facing content saved.");
+            notify({ tone: "success", message: "Guest-facing content saved." });
             await load();
         } catch (error: any) {
-            setMessage(error.message || "Failed to save content.");
+            notify({ tone: "error", message: error.message || "Failed to save content." });
         }
     };
 
     const toggleDestination = async (key: string) => {
-        setMessage("");
         try {
             const visibility = {
                 ...(data.visibility || {}),
@@ -70,9 +70,10 @@ export default function ContentPage() {
                 },
             };
             await api("/api/admin/config", { method: "POST", body: JSON.stringify({ visibility }) });
+            notify({ tone: "success", message: `${key.replace(/([A-Z])/g, " $1").trim()} visibility updated.` });
             await load();
         } catch (error: any) {
-            setMessage(error.message || "Failed to update visibility.");
+            notify({ tone: "error", message: error.message || "Failed to update visibility." });
         }
     };
 
@@ -89,11 +90,7 @@ export default function ContentPage() {
 
     return (
         <div className="space-y-6">
-            {message && (
-                <div className={`rounded-2xl px-4 py-3 text-sm ${message.includes("Failed") ? "bg-red-50 text-red-700" : "bg-green-50 text-green-700"}`}>
-                    {message}
-                </div>
-            )}
+            {loadError && <div className="page-inline-error">{loadError}</div>}
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <BentoCard title="Startup Asset" eyebrow="Launcher Boot Media">
@@ -245,11 +242,11 @@ export default function ContentPage() {
                     if (!deleteTarget) return;
                     try {
                         await api(`/api/admin/assets/${deleteTarget.id}`, { method: "DELETE" });
-                        setMessage("Asset deleted successfully.");
+                        notify({ tone: "success", message: "Asset deleted successfully." });
                         setDeleteTarget(null);
                         await load();
                     } catch (error: any) {
-                        setMessage(error.message || "Failed to delete asset.");
+                        notify({ tone: "error", message: error.message || "Failed to delete asset." });
                         setDeleteTarget(null);
                     }
                 }}
