@@ -1148,6 +1148,37 @@ function sanitizeExt(fileName) {
   return path.extname(fileName || "").toLowerCase() || ".jpg";
 }
 
+function buildImageKitUploadAuth() {
+  const expire = Math.floor(Date.now() / 1000) + 10 * 60;
+  const token = randomToken(16);
+  const signature = crypto
+    .createHash("sha1")
+    .update(`${token}${expire}${IMAGEKIT_PRIVATE_KEY}`)
+    .digest("hex");
+  return { token, expire, signature };
+}
+
+function buildImageKitDeliveryUrl(sourceUrl, options = {}) {
+  if (!sourceUrl) {
+    return sourceUrl;
+  }
+  try {
+    const parsed = new URL(sourceUrl);
+    const transforms = [];
+    if (options.kind === "background") {
+      transforms.push("w-1920", "h-1080", "c-at_max", "q-80", "f-webp");
+    } else if (options.kind === "startup" && `${options.mimeType || ""}`.startsWith("image/")) {
+      transforms.push("w-1600", "h-900", "c-at_max", "q-85");
+    }
+    if (transforms.length === 0) {
+      return sourceUrl;
+    }
+    return `${parsed.origin}/tr:${transforms.join(",")}${parsed.pathname}${parsed.search}`;
+  } catch {
+    return sourceUrl;
+  }
+}
+
 function localRelativeUrl(kind, bucket, fileName) {
   if (kind === "startup") {
     return `/uploads/startup/${fileName}`;
@@ -2161,6 +2192,66 @@ app.get(
   requireModuleAction("content", "view", async (_, res) => {
     const store = await getStore();
     res.json({ assets: buildAssetEntries(store) });
+  })
+);
+
+app.post(
+  "/api/admin/upload-auth",
+  requireModuleAction("content", "create", async (req, res) => {
+    if (!IMAGEKIT_PUBLIC_KEY || !IMAGEKIT_PRIVATE_KEY) {
+      return res.status(503).json({ error: "ImageKit upload is not configured." });
+    }
+    const kind = `${req.body.kind || "background"}`.trim().toLowerCase();
+    const bucket = `${req.body.bucket || "home"}`.trim().toLowerCase();
+    const originalName = `${req.body.originalName || "asset"}`.trim() || "asset";
+    const auth = buildImageKitUploadAuth();
+    const ext = sanitizeExt(originalName);
+    const fileName = `${Date.now()}-${crypto.randomBytes(4).toString("hex")}${ext}`;
+    const folder =
+      kind === "startup"
+        ? "/hotel-central-admin-panel/startup"
+        : `/hotel-central-admin-panel/backgrounds/${bucket}`;
+    res.json({
+      ok: true,
+      publicKey: IMAGEKIT_PUBLIC_KEY,
+      uploadUrl: "https://upload.imagekit.io/api/v1/files/upload",
+      fileName,
+      folder,
+      kind,
+      bucket,
+      ...auth
+    });
+  })
+);
+
+app.post(
+  "/api/admin/assets/register",
+  requireModuleAction("content", "create", async (req, res) => {
+    const store = await getStore();
+    const kind = `${req.body.kind || "background"}`.trim().toLowerCase();
+    const bucket = `${req.body.bucket || "home"}`.trim().toLowerCase();
+    const originalUrl = `${req.body.originalUrl || ""}`.trim();
+    const mimeType = `${req.body.mimeType || ""}`.trim().toLowerCase();
+    if (!originalUrl) {
+      return res.status(400).json({ error: "originalUrl is required" });
+    }
+    const deliveryUrl = buildImageKitDeliveryUrl(originalUrl, { kind, mimeType });
+    if (kind === "startup") {
+      store.hotel.startupLogoUrl = deliveryUrl;
+    } else {
+      const target = Array.isArray(store.backgrounds[bucket]) ? store.backgrounds[bucket] : [];
+      store.backgrounds[bucket] = [deliveryUrl, ...target.filter((url) => url !== deliveryUrl)].slice(0, 8);
+    }
+    pushAudit(store, {
+      actorName: req.currentUser.name,
+      actorRole: req.currentUser.role,
+      action: `Uploaded ${kind === "startup" ? "startup asset" : `${bucket} background asset`} via ImageKit`,
+      entityType: "ASSET",
+      entityId: bucket,
+      tone: "success"
+    });
+    await saveStore(store);
+    res.json({ ok: true, url: deliveryUrl, store });
   })
 );
 

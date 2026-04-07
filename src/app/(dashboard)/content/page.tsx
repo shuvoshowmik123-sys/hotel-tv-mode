@@ -13,6 +13,7 @@ export default function ContentPage() {
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState("");
     const [deleteTarget, setDeleteTarget] = useState<any>(null);
+    const [uploadingLabel, setUploadingLabel] = useState("");
     const { notify } = useFeedback();
 
     const load = async () => {
@@ -29,16 +30,64 @@ export default function ContentPage() {
 
     useEffect(() => { load(); }, []);
 
-    const handleUpload = async (e: React.FormEvent, endpoint: string) => {
+    const handleUpload = async (e: React.FormEvent, kind: "startup" | "background") => {
         e.preventDefault();
         try {
-            const fd = new FormData(e.currentTarget as HTMLFormElement);
-            await api(endpoint, { method: "POST", body: fd });
-            notify({ tone: "success", message: "Asset uploaded successfully." });
-            (e.currentTarget as HTMLFormElement).reset();
+            const formEl = e.currentTarget as HTMLFormElement;
+            const fd = new FormData(formEl);
+            const file = fd.get("file");
+            const bucket = `${fd.get("bucket") || "home"}`.trim() || "home";
+            if (!(file instanceof File) || !file.size) {
+                notify({ tone: "warning", message: "Please choose an image before uploading." });
+                return;
+            }
+            setUploadingLabel(kind === "startup" ? "Uploading startup asset..." : "Uploading background asset...");
+            const auth = await api("/api/admin/upload-auth", {
+                method: "POST",
+                body: JSON.stringify({
+                    kind,
+                    bucket,
+                    originalName: file.name,
+                }),
+            });
+            const uploadBody = new FormData();
+            uploadBody.append("file", file);
+            uploadBody.append("fileName", auth.fileName);
+            uploadBody.append("folder", auth.folder);
+            uploadBody.append("publicKey", auth.publicKey);
+            uploadBody.append("signature", auth.signature);
+            uploadBody.append("expire", String(auth.expire));
+            uploadBody.append("token", auth.token);
+            uploadBody.append("useUniqueFileName", "false");
+
+            const uploadResponse = await fetch(auth.uploadUrl, {
+                method: "POST",
+                body: uploadBody,
+            });
+            const uploadResult = await uploadResponse.json().catch(() => ({}));
+            if (!uploadResponse.ok) {
+                throw new Error(uploadResult.message || uploadResult.error || "ImageKit upload failed.");
+            }
+
+            await api("/api/admin/assets/register", {
+                method: "POST",
+                body: JSON.stringify({
+                    kind,
+                    bucket,
+                    originalUrl: uploadResult.url,
+                    mimeType: file.type,
+                }),
+            });
+            notify({
+                tone: "success",
+                message: kind === "startup" ? "Startup asset uploaded and optimized." : "Background uploaded and optimized for launcher sync.",
+            });
+            formEl.reset();
             await load();
         } catch (error: any) {
             notify({ tone: "error", message: error.message || "Failed to upload asset." });
+        } finally {
+            setUploadingLabel("");
         }
     };
 
@@ -95,11 +144,13 @@ export default function ContentPage() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <BentoCard title="Startup Asset" eyebrow="Launcher Boot Media">
                     {canCreateContent ? (
-                        <form className="mt-4 space-y-4" onSubmit={e => handleUpload(e, "/api/admin/upload?kind=startup")}>
+                        <form className="mt-4 space-y-4" onSubmit={e => handleUpload(e, "startup")}>
                             <div className="border-2 border-dashed border-luxury-200 rounded-2xl p-6 text-center hover:bg-luxury-50 transition-colors">
                                 <input type="file" name="file" accept="video/mp4,image/*" className="text-sm text-luxury-800" required />
                             </div>
-                            <PillButton primary type="submit" className="w-full">Upload Startup Asset</PillButton>
+                            <PillButton primary type="submit" className="w-full" disabled={Boolean(uploadingLabel)}>
+                                {uploadingLabel && uploadingLabel.includes("startup") ? uploadingLabel : "Upload Startup Asset"}
+                            </PillButton>
                         </form>
                     ) : (
                         <div className="mt-4 rounded-2xl border border-luxury-100 bg-luxury-50/70 p-4 text-sm text-luxury-800/55">
@@ -122,7 +173,7 @@ export default function ContentPage() {
 
                 <BentoCard title="Background Slideshow" eyebrow="Ambient Media">
                     {canCreateContent ? (
-                        <form className="mt-4 space-y-4" onSubmit={e => handleUpload(e, "/api/admin/upload?kind=background")}>
+                        <form className="mt-4 space-y-4" onSubmit={e => handleUpload(e, "background")}>
                             <select name="bucket" className="w-full bg-luxury-50 border border-luxury-200 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-gold-500/50">
                                 <option value="home">Home Screen</option>
                                 <option value="roomService">Room Service</option>
@@ -132,7 +183,9 @@ export default function ContentPage() {
                             <div className="border-2 border-dashed border-luxury-200 rounded-2xl p-6 text-center hover:bg-luxury-50 transition-colors">
                                 <input type="file" name="file" accept="image/*" className="text-sm text-luxury-800" required />
                             </div>
-                            <PillButton primary type="submit" className="w-full">Upload Background</PillButton>
+                            <PillButton primary type="submit" className="w-full" disabled={Boolean(uploadingLabel)}>
+                                {uploadingLabel && uploadingLabel.includes("background") ? uploadingLabel : "Upload Background"}
+                            </PillButton>
                         </form>
                     ) : (
                         <div className="mt-4 rounded-2xl border border-luxury-100 bg-luxury-50/70 p-4 text-sm text-luxury-800/55">
