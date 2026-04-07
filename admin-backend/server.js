@@ -204,8 +204,11 @@ function validateRuntimeConfig() {
   if (IS_PRODUCTION && !SESSION_SECRET) {
     throw new Error("SESSION_SECRET is required in production.");
   }
-  if (IS_PRODUCTION && (!IMAGEKIT_PUBLIC_KEY || !IMAGEKIT_PRIVATE_KEY)) {
-    throw new Error("Persistent asset storage is required in production. Set IMAGEKIT_PUBLIC_KEY and IMAGEKIT_PRIVATE_KEY.");
+}
+
+function ensureImageKitConfigured() {
+  if (!IMAGEKIT_PUBLIC_KEY || !IMAGEKIT_PRIVATE_KEY) {
+    throw new Error("ImageKit upload is not configured.");
   }
 }
 
@@ -1471,9 +1474,7 @@ async function uploadToImageKit(file, kind, bucket) {
 }
 
 async function persistUpload(file, kind, bucket) {
-  if (IS_PRODUCTION && (!IMAGEKIT_PUBLIC_KEY || !IMAGEKIT_PRIVATE_KEY)) {
-    throw new Error("Persistent asset storage is not configured.");
-  }
+  ensureImageKitConfigured();
   try {
     const remoteUrl = await uploadToImageKit(file, kind, bucket);
     if (remoteUrl) {
@@ -2562,6 +2563,7 @@ app.post(
   "/api/admin/assets/register",
   rateLimitBy("asset-register", { windowMs: 60 * 1000, max: 25 }, (req) => `${clientIp(req)}:${req.currentUser?.id || "unknown"}`),
   requireModuleAction("content", "create", async (req, res) => {
+    ensureImageKitConfigured();
     const store = await getStore();
     const kind = `${req.body.kind || "background"}`.trim().toLowerCase();
     const bucket = `${req.body.bucket || "home"}`.trim().toLowerCase();
