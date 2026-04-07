@@ -1,3 +1,4 @@
+// Deploy touch: harmless tracked change to trigger a fresh Vercel deployment.
 require("dotenv").config({ path: require("path").join(__dirname, ".env.local") });
 const { Pool } = require("pg");
 
