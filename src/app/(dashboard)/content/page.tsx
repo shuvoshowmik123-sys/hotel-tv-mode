@@ -14,6 +14,8 @@ export default function ContentPage() {
     const [loadError, setLoadError] = useState("");
     const [deleteTarget, setDeleteTarget] = useState<any>(null);
     const [uploadingLabel, setUploadingLabel] = useState("");
+    const [startupFileName, setStartupFileName] = useState("");
+    const [backgroundFileName, setBackgroundFileName] = useState("");
     const { notify } = useFeedback();
 
     const load = async () => {
@@ -83,6 +85,11 @@ export default function ContentPage() {
                 message: kind === "startup" ? "Startup asset uploaded and optimized." : "Background uploaded and optimized for launcher sync.",
             });
             formEl.reset();
+            if (kind === "startup") {
+                setStartupFileName("");
+            } else {
+                setBackgroundFileName("");
+            }
             await load();
         } catch (error: any) {
             notify({ tone: "error", message: error.message || "Failed to upload asset." });
@@ -146,7 +153,27 @@ export default function ContentPage() {
                     {canCreateContent ? (
                         <form className="mt-4 space-y-4" onSubmit={e => handleUpload(e, "startup")}>
                             <div className="border-2 border-dashed border-luxury-200 rounded-2xl p-6 text-center hover:bg-luxury-50 transition-colors">
-                                <input type="file" name="file" accept="video/mp4,image/*" className="text-sm text-luxury-800" required />
+                                <input
+                                    id="startup-file-input"
+                                    type="file"
+                                    name="file"
+                                    accept="video/mp4,image/*"
+                                    className="sr-only"
+                                    required
+                                    onChange={(event) => setStartupFileName(event.target.files?.[0]?.name || "")}
+                                />
+                                <label htmlFor="startup-file-input" className="upload-pick-button">
+                                    Choose startup file
+                                </label>
+                                <div className="mt-4 flex min-h-6 items-center justify-center">
+                                    {startupFileName ? (
+                                        <span className="upload-file-chip truncate max-w-full" title={startupFileName}>
+                                            {startupFileName}
+                                        </span>
+                                    ) : (
+                                        <span className="text-sm text-luxury-800/55">No file selected yet</span>
+                                    )}
+                                </div>
                             </div>
                             <PillButton primary type="submit" className="w-full" disabled={Boolean(uploadingLabel)}>
                                 {uploadingLabel && uploadingLabel.includes("startup") ? uploadingLabel : "Upload Startup Asset"}
@@ -181,7 +208,27 @@ export default function ContentPage() {
                                 <option value="inputs">TV Inputs</option>
                             </select>
                             <div className="border-2 border-dashed border-luxury-200 rounded-2xl p-6 text-center hover:bg-luxury-50 transition-colors">
-                                <input type="file" name="file" accept="image/*" className="text-sm text-luxury-800" required />
+                                <input
+                                    id="background-file-input"
+                                    type="file"
+                                    name="file"
+                                    accept="image/*"
+                                    className="sr-only"
+                                    required
+                                    onChange={(event) => setBackgroundFileName(event.target.files?.[0]?.name || "")}
+                                />
+                                <label htmlFor="background-file-input" className="upload-pick-button">
+                                    Choose background image
+                                </label>
+                                <div className="mt-4 flex min-h-6 items-center justify-center">
+                                    {backgroundFileName ? (
+                                        <span className="upload-file-chip truncate max-w-full" title={backgroundFileName}>
+                                            {backgroundFileName}
+                                        </span>
+                                    ) : (
+                                        <span className="text-sm text-luxury-800/55">No file selected yet</span>
+                                    )}
+                                </div>
                             </div>
                             <PillButton primary type="submit" className="w-full" disabled={Boolean(uploadingLabel)}>
                                 {uploadingLabel && uploadingLabel.includes("background") ? uploadingLabel : "Upload Background"}
