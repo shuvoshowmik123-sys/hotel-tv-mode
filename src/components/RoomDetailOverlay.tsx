@@ -109,6 +109,9 @@ export function RoomDetailOverlay({
                                         <DetailRow label="TV Binding" value={room.deviceId || "Not bound"} />
                                         <DetailRow label="Language" value={room.language || "English"} />
                                         <DetailRow label="Last Sync" value={room.lastSyncAt ? new Date(room.lastSyncAt).toLocaleString() : "N/A"} />
+                                        <DetailRow label="Sync Freshness" value={room.syncFreshness || "offline"} />
+                                        <DetailRow label="Launcher Sync" value={`Device ${room.lastAcknowledgedSyncVersion || 0} / Server ${room.currentSyncVersion || 0}`} />
+                                        <DetailRow label="Pending Refresh" value={room.pendingRefresh ? "Waiting for launcher refresh" : "Launcher is current"} />
                                         <DetailRow label="Session History" value={room.hasSessionHistory ? "Has past guest activity" : "No past guest activity"} />
                                         <DetailRow label="Binding History" value={room.hasBindingHistory ? "Has been bound before" : "Never bound yet"} />
                                     </div>

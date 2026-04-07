@@ -427,6 +427,7 @@ async function ensureDatabase() {
       model_name TEXT,
       launcher_version TEXT,
       api_base_url TEXT,
+      cached_sync_version INTEGER NOT NULL DEFAULT 0,
       installed_apps JSONB NOT NULL DEFAULT '[]'::jsonb,
       source_inputs JSONB NOT NULL DEFAULT '[]'::jsonb,
       security_flags JSONB NOT NULL DEFAULT '[]'::jsonb,
@@ -460,6 +461,7 @@ async function ensureDatabase() {
     ALTER TABLE admin_sessions ADD COLUMN IF NOT EXISTS user_agent TEXT;
     ALTER TABLE device_bindings ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ;
     ALTER TABLE device_bindings ADD COLUMN IF NOT EXISTS revoked_at TIMESTAMPTZ;
+    ALTER TABLE device_status_reports ADD COLUMN IF NOT EXISTS cached_sync_version INTEGER NOT NULL DEFAULT 0;
     ALTER TABLE device_status_reports ADD COLUMN IF NOT EXISTS security_flags JSONB NOT NULL DEFAULT '[]'::jsonb;
   `);
 
@@ -1073,6 +1075,7 @@ function normalizeDeviceStatusReport(binding, payload) {
     modelName: payload.modelName || null,
     launcherVersion: payload.launcherVersion || null,
     apiBaseUrl: payload.apiBaseUrl || null,
+    cachedSyncVersion: Number(payload.cachedSyncVersion || 0) || 0,
     installedApps: normalizeReportedInstalledApps(payload.installedApps),
     sourceInputs: normalizeReportedSourceInputs(payload.sourceInputs),
     securityFlags: normalizeSecurityFlags(payload.securityFlags),
@@ -1093,6 +1096,7 @@ async function getDeviceStatusesMap() {
       model_name,
       launcher_version,
       api_base_url,
+      cached_sync_version,
       installed_apps,
       source_inputs,
       security_flags,
@@ -1111,6 +1115,7 @@ async function getDeviceStatusesMap() {
         modelName: row.model_name,
         launcherVersion: row.launcher_version,
         apiBaseUrl: row.api_base_url,
+        cachedSyncVersion: Number(row.cached_sync_version || 0) || 0,
         installedApps: normalizeReportedInstalledApps(row.installed_apps),
         sourceInputs: normalizeReportedSourceInputs(row.source_inputs),
         securityFlags: normalizeSecurityFlags(row.security_flags),
@@ -1138,12 +1143,13 @@ async function saveDeviceStatusReport(report) {
         model_name,
         launcher_version,
         api_base_url,
+        cached_sync_version,
         installed_apps,
         source_inputs,
         security_flags,
         reported_at
       )
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::jsonb, $10::jsonb, $11)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10::jsonb, $11::jsonb, $12)
      ON CONFLICT (session_token)
      DO UPDATE SET
        room_number = EXCLUDED.room_number,
@@ -1152,6 +1158,7 @@ async function saveDeviceStatusReport(report) {
        model_name = EXCLUDED.model_name,
        launcher_version = EXCLUDED.launcher_version,
        api_base_url = EXCLUDED.api_base_url,
+       cached_sync_version = EXCLUDED.cached_sync_version,
        installed_apps = EXCLUDED.installed_apps,
        source_inputs = EXCLUDED.source_inputs,
        security_flags = EXCLUDED.security_flags,
@@ -1164,6 +1171,7 @@ async function saveDeviceStatusReport(report) {
       report.modelName,
       report.launcherVersion,
       report.apiBaseUrl,
+      report.cachedSyncVersion,
       JSON.stringify(report.installedApps || []),
       JSON.stringify(report.sourceInputs || []),
       JSON.stringify(report.securityFlags || []),
@@ -1351,12 +1359,32 @@ async function buildAdminState(user) {
       sessionToken,
       {
         ...status,
-        freshness: deviceFreshness(status.reportedAt)
+        freshness: deviceFreshness(status.reportedAt),
+        currentSyncVersion: Number(store.sync?.version || 0),
+        pendingRefresh: Number(store.sync?.version || 0) > Number(status.cachedSyncVersion || 0)
       }
     ])
   );
   const metrics = buildMetrics(store, pendingActivations, bindings, deviceStatuses);
-  const rooms = activeRoomsMap(store);
+  const rooms = Object.fromEntries(
+    Object.entries(activeRoomsMap(store)).map(([roomNumber, room]) => {
+      const activeBinding = Object.values(bindings).find(
+        (binding) => binding.roomNumber === roomNumber && bindingIsActive(binding)
+      );
+      const deviceStatus = activeBinding ? deviceStatuses[activeBinding.sessionToken] : null;
+      return [
+        roomNumber,
+        {
+          ...room,
+          lastSyncAt: deviceStatus?.reportedAt || room.lastSyncAt || null,
+          syncFreshness: deviceStatus?.freshness || "offline",
+          lastAcknowledgedSyncVersion: Number(deviceStatus?.cachedSyncVersion || 0) || 0,
+          currentSyncVersion: Number(store.sync?.version || 0),
+          pendingRefresh: Boolean(deviceStatus && Number(store.sync?.version || 0) > Number(deviceStatus.cachedSyncVersion || 0))
+        }
+      ];
+    })
+  );
   const meals = activeMeals(store);
   const availableApps = buildAvailableApps(store, deviceStatuses);
   const availableInputs = buildAvailableInputs(store, deviceStatuses);
@@ -1868,18 +1896,14 @@ app.post(
     await saveDeviceStatusReport(report);
 
     const store = await getStore();
-    const room = store.rooms[binding.roomNumber];
-    if (room) {
-      store.rooms[binding.roomNumber] = normalizeRoom(binding.roomNumber, {
-        ...room,
-        deviceId: report.deviceId || room.deviceId,
-        hasBindingHistory: true,
-        lastSyncAt: report.reportedAt
-      }, store.sync.updatedAt);
-      await saveStore(store);
-    }
-
-    res.json({ ok: true, reportedAt: report.reportedAt });
+    res.json({
+      ok: true,
+      reportedAt: report.reportedAt,
+      syncVersion: Number(store.sync?.version || 0),
+      updatedAt: store.sync?.updatedAt || nowIso(),
+      ttlSeconds: Number(store.sync?.ttlSeconds || 15) || 15,
+      shouldRefetch: Number(store.sync?.version || 0) > Number(report.cachedSyncVersion || 0)
+    });
   })
 );
 
