@@ -48,7 +48,11 @@ const UPLOAD_DIR = path.join(ROOT, "uploads");
 const STARTUP_DIR = path.join(UPLOAD_DIR, "startup");
 const BACKGROUND_DIR = path.join(UPLOAD_DIR, "backgrounds");
 const SESSION_COOKIE = "hotel_admin_session";
-const SESSION_TTL_DAYS = 7;
+const SESSION_SECRET = process.env.SESSION_SECRET || "";
+const SESSION_TTL_HOURS = Number(process.env.ADMIN_SESSION_TTL_HOURS || 12);
+const SESSION_RENEWAL_HOURS = Number(process.env.ADMIN_SESSION_RENEWAL_HOURS || 4);
+const DEVICE_ONLINE_WINDOW_MS = Number(process.env.DEVICE_ONLINE_WINDOW_MS || 2 * 60 * 1000);
+const DEVICE_STALE_WINDOW_MS = Number(process.env.DEVICE_STALE_WINDOW_MS || 15 * 60 * 1000);
 const DISABLE_STATIC_UI = process.env.ADMIN_DISABLE_STATIC === "1";
 
 const DATABASE_URL = process.env.DATABASE_URL || "";
@@ -98,7 +102,93 @@ const pool = DATABASE_URL
   })
   : null;
 
-app.use(cors());
+const rateLimitBuckets = new Map();
+
+function pruneRateLimitBucket(bucket) {
+  const now = Date.now();
+  for (const [key, value] of bucket.entries()) {
+    if (value.resetAt <= now) {
+      bucket.delete(key);
+    }
+  }
+}
+
+function consumeRateLimit(scope, key, { windowMs, max }) {
+  const now = Date.now();
+  const bucket = rateLimitBuckets.get(scope) || new Map();
+  rateLimitBuckets.set(scope, bucket);
+  pruneRateLimitBucket(bucket);
+  const current = bucket.get(key);
+  if (!current || current.resetAt <= now) {
+    bucket.set(key, { count: 1, resetAt: now + windowMs });
+    return { allowed: true, remaining: Math.max(max - 1, 0), resetAt: now + windowMs };
+  }
+  current.count += 1;
+  bucket.set(key, current);
+  return {
+    allowed: current.count <= max,
+    remaining: Math.max(max - current.count, 0),
+    resetAt: current.resetAt
+  };
+}
+
+function rateLimitBy(scope, options, keyResolver) {
+  return (req, res, next) => {
+    const key = `${keyResolver(req) || req.ip || "anonymous"}`;
+    const result = consumeRateLimit(scope, key, options);
+    res.setHeader("X-RateLimit-Remaining", `${result.remaining}`);
+    res.setHeader("X-RateLimit-Reset", `${Math.ceil(result.resetAt / 1000)}`);
+    if (!result.allowed) {
+      return res.status(429).json({ error: "Too many requests. Please try again shortly." });
+    }
+    return next();
+  };
+}
+
+function strictSecurityHeaders(req, res, next) {
+  res.setHeader(
+    "Content-Security-Policy",
+    [
+      "default-src 'self'",
+      "base-uri 'self'",
+      "frame-ancestors 'none'",
+      "form-action 'self'",
+      "object-src 'none'",
+      "img-src 'self' data: blob: https:",
+      "font-src 'self' data: https:",
+      "connect-src 'self' https:",
+      "style-src 'self' 'unsafe-inline'",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
+    ].join("; ")
+  );
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  if (IS_PRODUCTION) {
+    res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload");
+  }
+  next();
+}
+
+function sessionCookieOptions(maxAgeMs) {
+  return {
+    httpOnly: true,
+    sameSite: "strict",
+    secure: IS_PRODUCTION,
+    path: "/",
+    maxAge: maxAgeMs
+  };
+}
+
+function clientIp(req) {
+  return `${req.headers["x-forwarded-for"] || req.socket?.remoteAddress || req.ip || "unknown"}`
+    .split(",")[0]
+    .trim();
+}
+
+app.use(strictSecurityHeaders);
+app.use(cors({ origin: true, credentials: true }));
 app.use(cookieParser());
 app.use(express.json({ limit: "5mb" }));
 app.use(express.urlencoded({ extended: true }));
@@ -111,14 +201,23 @@ function validateRuntimeConfig() {
   if (IS_PRODUCTION && !DATABASE_URL) {
     throw new Error("DATABASE_URL is required in production.");
   }
+  if (IS_PRODUCTION && !SESSION_SECRET) {
+    throw new Error("SESSION_SECRET is required in production.");
+  }
   if (IS_PRODUCTION && (!IMAGEKIT_PUBLIC_KEY || !IMAGEKIT_PRIVATE_KEY)) {
     throw new Error("Persistent asset storage is required in production. Set IMAGEKIT_PUBLIC_KEY and IMAGEKIT_PRIVATE_KEY.");
   }
 }
 
 function randomToken(size = 8) {
-  return crypto.randomBytes(size).toString("hex");
+  const entropy = crypto.randomBytes(size).toString("hex");
+  const secret = SESSION_SECRET || `dev-secret:${PORT}`;
+  return crypto
+    .createHmac("sha256", secret)
+    .update(`${Date.now()}:${entropy}:${randomToken.counter++}`)
+    .digest("hex");
 }
+randomToken.counter = 0;
 
 function createFileSeed() {
   return {
@@ -224,7 +323,9 @@ async function ensureDatabase() {
       room_number TEXT NOT NULL,
       device_id TEXT NOT NULL,
       mac_address TEXT,
-      bound_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      bound_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      expires_at TIMESTAMPTZ,
+      revoked_at TIMESTAMPTZ
     );
 
     CREATE TABLE IF NOT EXISTS device_status_reports (
@@ -237,6 +338,7 @@ async function ensureDatabase() {
       api_base_url TEXT,
       installed_apps JSONB NOT NULL DEFAULT '[]'::jsonb,
       source_inputs JSONB NOT NULL DEFAULT '[]'::jsonb,
+      security_flags JSONB NOT NULL DEFAULT '[]'::jsonb,
       reported_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
 
@@ -255,8 +357,19 @@ async function ensureDatabase() {
       session_token TEXT PRIMARY KEY,
       user_id TEXT NOT NULL REFERENCES admin_users(id) ON DELETE CASCADE,
       expires_at TIMESTAMPTZ NOT NULL,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      client_ip TEXT,
+      user_agent TEXT
     );
+  `);
+  await pool.query(`
+    ALTER TABLE admin_sessions ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+    ALTER TABLE admin_sessions ADD COLUMN IF NOT EXISTS client_ip TEXT;
+    ALTER TABLE admin_sessions ADD COLUMN IF NOT EXISTS user_agent TEXT;
+    ALTER TABLE device_bindings ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ;
+    ALTER TABLE device_bindings ADD COLUMN IF NOT EXISTS revoked_at TIMESTAMPTZ;
+    ALTER TABLE device_status_reports ADD COLUMN IF NOT EXISTS security_flags JSONB NOT NULL DEFAULT '[]'::jsonb;
   `);
 
   const existing = await pool.query(
@@ -520,13 +633,13 @@ async function archiveUser(userId) {
   });
 }
 
-async function createSession(userId) {
+async function createSession(userId, metadata = {}) {
   const sessionToken = randomToken(24);
-  const expiresAt = new Date(Date.now() + SESSION_TTL_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  const expiresAt = new Date(Date.now() + SESSION_TTL_HOURS * 60 * 60 * 1000).toISOString();
   if (pool) {
     await pool.query(
-      "INSERT INTO admin_sessions (session_token, user_id, expires_at) VALUES ($1, $2, $3)",
-      [sessionToken, userId, expiresAt]
+      "INSERT INTO admin_sessions (session_token, user_id, expires_at, last_seen_at, client_ip, user_agent) VALUES ($1, $2, $3, NOW(), $4, $5)",
+      [sessionToken, userId, expiresAt, metadata.clientIp || null, metadata.userAgent || null]
     );
   }
   return { sessionToken, userId, expiresAt };
@@ -537,7 +650,7 @@ async function findSession(sessionToken) {
     return null;
   }
   const result = await pool.query(
-    "SELECT session_token, user_id, expires_at FROM admin_sessions WHERE session_token = $1 LIMIT 1",
+    "SELECT session_token, user_id, expires_at, last_seen_at, client_ip, user_agent FROM admin_sessions WHERE session_token = $1 LIMIT 1",
     [sessionToken]
   );
   return result.rowCount ? result.rows[0] : null;
@@ -547,6 +660,28 @@ async function deleteSession(sessionToken) {
   if (pool) {
     await pool.query("DELETE FROM admin_sessions WHERE session_token = $1", [sessionToken]);
   }
+}
+
+async function deleteSessionsByUserId(userId) {
+  if (pool) {
+    await pool.query("DELETE FROM admin_sessions WHERE user_id = $1", [userId]);
+  }
+}
+
+async function extendSession(sessionToken, metadata = {}) {
+  const expiresAt = new Date(Date.now() + SESSION_TTL_HOURS * 60 * 60 * 1000).toISOString();
+  if (pool) {
+    await pool.query(
+      `UPDATE admin_sessions
+       SET expires_at = $2,
+           last_seen_at = NOW(),
+           client_ip = COALESCE($3, client_ip),
+           user_agent = COALESCE($4, user_agent)
+       WHERE session_token = $1`,
+      [sessionToken, expiresAt, metadata.clientIp || null, metadata.userAgent || null]
+    );
+  }
+  return { sessionToken, expiresAt };
 }
 
 async function getPendingActivationsMap() {
@@ -675,7 +810,7 @@ async function getBindingsMap() {
     return readFileState().bindings;
   }
   const result = await pool.query(
-    "SELECT session_token, poll_token, activation_code, room_number, device_id, mac_address, bound_at FROM device_bindings ORDER BY bound_at DESC"
+    "SELECT session_token, poll_token, activation_code, room_number, device_id, mac_address, bound_at, expires_at, revoked_at FROM device_bindings WHERE revoked_at IS NULL ORDER BY bound_at DESC"
   );
   return Object.fromEntries(
     result.rows.map((row) => [
@@ -687,7 +822,9 @@ async function getBindingsMap() {
         roomNumber: row.room_number,
         deviceId: row.device_id,
         macAddress: row.mac_address,
-        boundAt: row.bound_at
+        boundAt: row.bound_at,
+        expiresAt: row.expires_at,
+        revokedAt: row.revoked_at
       }
     ])
   );
@@ -698,7 +835,7 @@ async function findBindingBySessionToken(sessionToken) {
     return readFileState().bindings[sessionToken] || null;
   }
   const result = await pool.query(
-    "SELECT session_token, poll_token, activation_code, room_number, device_id, mac_address, bound_at FROM device_bindings WHERE session_token = $1 LIMIT 1",
+    "SELECT session_token, poll_token, activation_code, room_number, device_id, mac_address, bound_at, expires_at, revoked_at FROM device_bindings WHERE session_token = $1 LIMIT 1",
     [sessionToken]
   );
   if (result.rowCount === 0) {
@@ -712,8 +849,22 @@ async function findBindingBySessionToken(sessionToken) {
     roomNumber: row.room_number,
     deviceId: row.device_id,
     macAddress: row.mac_address,
-    boundAt: row.bound_at
+    boundAt: row.bound_at,
+    expiresAt: row.expires_at,
+    revokedAt: row.revoked_at
   };
+}
+
+async function requireActiveBinding(sessionToken) {
+  const binding = await findBindingBySessionToken(sessionToken);
+  if (!bindingIsActive(binding)) {
+    if (binding?.sessionToken) {
+      await deleteDeviceStatusBySessionToken(binding.sessionToken);
+      await deleteBindingBySessionToken(binding.sessionToken);
+    }
+    return null;
+  }
+  return binding;
 }
 
 async function findBindingByPollToken(pollToken) {
@@ -721,7 +872,7 @@ async function findBindingByPollToken(pollToken) {
     return Object.values(readFileState().bindings).find((item) => item.pollToken === pollToken) || null;
   }
   const result = await pool.query(
-    "SELECT session_token, poll_token, activation_code, room_number, device_id, mac_address, bound_at FROM device_bindings WHERE poll_token = $1 LIMIT 1",
+    "SELECT session_token, poll_token, activation_code, room_number, device_id, mac_address, bound_at, expires_at, revoked_at FROM device_bindings WHERE poll_token = $1 LIMIT 1",
     [pollToken]
   );
   if (result.rowCount === 0) {
@@ -735,7 +886,9 @@ async function findBindingByPollToken(pollToken) {
     roomNumber: row.room_number,
     deviceId: row.device_id,
     macAddress: row.mac_address,
-    boundAt: row.bound_at
+    boundAt: row.bound_at,
+    expiresAt: row.expires_at,
+    revokedAt: row.revoked_at
   };
 }
 
@@ -748,8 +901,8 @@ async function createBinding(binding) {
   }
   await pool.query(
     `INSERT INTO device_bindings
-      (session_token, poll_token, activation_code, room_number, device_id, mac_address, bound_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      (session_token, poll_token, activation_code, room_number, device_id, mac_address, bound_at, expires_at, revoked_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NULL)`,
     [
       binding.sessionToken,
       binding.pollToken,
@@ -757,7 +910,8 @@ async function createBinding(binding) {
       binding.roomNumber,
       binding.deviceId,
       binding.macAddress,
-      binding.boundAt
+      binding.boundAt,
+      binding.expiresAt || null
     ]
   );
   return binding;
@@ -811,6 +965,12 @@ function normalizeReportedSourceInputs(items) {
     : [];
 }
 
+function normalizeSecurityFlags(items) {
+  return Array.isArray(items)
+    ? [...new Set(items.map((item) => `${item || ""}`.trim()).filter(Boolean))].slice(0, 16)
+    : [];
+}
+
 function normalizeDeviceStatusReport(binding, payload) {
   return {
     sessionToken: binding.sessionToken,
@@ -822,6 +982,7 @@ function normalizeDeviceStatusReport(binding, payload) {
     apiBaseUrl: payload.apiBaseUrl || null,
     installedApps: normalizeReportedInstalledApps(payload.installedApps),
     sourceInputs: normalizeReportedSourceInputs(payload.sourceInputs),
+    securityFlags: normalizeSecurityFlags(payload.securityFlags),
     reportedAt: nowIso()
   };
 }
@@ -841,6 +1002,7 @@ async function getDeviceStatusesMap() {
       api_base_url,
       installed_apps,
       source_inputs,
+      security_flags,
       reported_at
      FROM device_status_reports
      ORDER BY reported_at DESC`
@@ -858,6 +1020,7 @@ async function getDeviceStatusesMap() {
         apiBaseUrl: row.api_base_url,
         installedApps: normalizeReportedInstalledApps(row.installed_apps),
         sourceInputs: normalizeReportedSourceInputs(row.source_inputs),
+        securityFlags: normalizeSecurityFlags(row.security_flags),
         reportedAt: row.reported_at
       }
     ])
@@ -884,9 +1047,10 @@ async function saveDeviceStatusReport(report) {
         api_base_url,
         installed_apps,
         source_inputs,
+        security_flags,
         reported_at
       )
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::jsonb, $10)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::jsonb, $10::jsonb, $11)
      ON CONFLICT (session_token)
      DO UPDATE SET
        room_number = EXCLUDED.room_number,
@@ -897,6 +1061,7 @@ async function saveDeviceStatusReport(report) {
        api_base_url = EXCLUDED.api_base_url,
        installed_apps = EXCLUDED.installed_apps,
        source_inputs = EXCLUDED.source_inputs,
+       security_flags = EXCLUDED.security_flags,
        reported_at = EXCLUDED.reported_at`,
     [
       report.sessionToken,
@@ -908,6 +1073,7 @@ async function saveDeviceStatusReport(report) {
       report.apiBaseUrl,
       JSON.stringify(report.installedApps || []),
       JSON.stringify(report.sourceInputs || []),
+      JSON.stringify(report.securityFlags || []),
       report.reportedAt
     ]
   );
@@ -1031,6 +1197,30 @@ function buildAssetEntries(store) {
   return assets;
 }
 
+function bindingIsActive(binding) {
+  if (!binding || binding.revokedAt) {
+    return false;
+  }
+  if (binding.expiresAt && new Date(binding.expiresAt).getTime() <= Date.now()) {
+    return false;
+  }
+  return true;
+}
+
+function deviceFreshness(reportedAt) {
+  if (!reportedAt) {
+    return "offline";
+  }
+  const ageMs = Date.now() - new Date(reportedAt).getTime();
+  if (ageMs <= DEVICE_ONLINE_WINDOW_MS) {
+    return "online";
+  }
+  if (ageMs <= DEVICE_STALE_WINDOW_MS) {
+    return "stale";
+  }
+  return "offline";
+}
+
 function bestEffortDeleteLocalAsset(url) {
   if (!url || typeof url !== "string" || !url.startsWith("/uploads/")) {
     return;
@@ -1044,9 +1234,12 @@ function bestEffortDeleteLocalAsset(url) {
 
 function buildMetrics(store, pendingActivations, bindings, deviceStatuses) {
   const rooms = Object.values(activeRoomsMap(store));
-  const onlineTvs = Object.keys(deviceStatuses).length || Object.keys(bindings).length;
+  const freshnessValues = Object.values(deviceStatuses).map((status) => deviceFreshness(status.reportedAt));
+  const onlineTvs = freshnessValues.filter((state) => state === "online").length;
+  const staleTvs = freshnessValues.filter((state) => state === "stale").length;
   return {
     onlineTvs,
+    staleTvs,
     occupiedRooms: rooms.filter((room) => room.status === "occupied").length,
     pendingBindings: Object.keys(pendingActivations).length,
     unboundDevices: rooms.filter((room) => room.status === "unbound").length,
@@ -1060,7 +1253,15 @@ async function buildAdminState(user) {
   const store = await getStore();
   const pendingActivations = await getPendingActivationsMap();
   const bindings = await getBindingsMap();
-  const deviceStatuses = await getDeviceStatusesMap();
+  const deviceStatuses = Object.fromEntries(
+    Object.entries(await getDeviceStatusesMap()).map(([sessionToken, status]) => [
+      sessionToken,
+      {
+        ...status,
+        freshness: deviceFreshness(status.reportedAt)
+      }
+    ])
+  );
   const metrics = buildMetrics(store, pendingActivations, bindings, deviceStatuses);
   const rooms = activeRoomsMap(store);
   const meals = activeMeals(store);
@@ -1113,8 +1314,8 @@ async function buildAdminState(user) {
         ? {
             property: store.property,
             integration: {
-              apiKeyPreview: store.property.apiKeyPreview || "",
-              webhookUrl: PANEL_WEBHOOK_URL || ""
+              apiKeyPreview: store.property.apiKeyPreview ? "Configured" : "",
+              webhookUrl: PANEL_WEBHOOK_URL ? "Configured" : ""
             },
             subscription: {
               plan: PANEL_SUBSCRIPTION_PLAN || "",
@@ -1293,7 +1494,23 @@ function asyncHandler(fn) {
   };
 }
 
-async function attachCurrentUser(req) {
+function isValidHttpsUrl(value) {
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+function assertImageKitUrl(value) {
+  if (!isValidHttpsUrl(value)) {
+    return false;
+  }
+  return value.includes("imagekit.io");
+}
+
+async function attachCurrentUser(req, res = null) {
   const sessionToken = req.cookies[SESSION_COOKIE];
   if (!sessionToken) {
     return null;
@@ -1306,18 +1523,30 @@ async function attachCurrentUser(req) {
     await deleteSession(sessionToken);
     return null;
   }
+  const remainingMs = new Date(session.expires_at || session.expiresAt).getTime() - Date.now();
+  if (res && remainingMs <= SESSION_RENEWAL_HOURS * 60 * 60 * 1000) {
+    const extended = await extendSession(sessionToken, {
+      clientIp: clientIp(req),
+      userAgent: req.headers["user-agent"] || null
+    });
+    res.cookie(SESSION_COOKIE, sessionToken, sessionCookieOptions(new Date(extended.expiresAt).getTime() - Date.now()));
+    session.expires_at = extended.expiresAt;
+  }
   const userId = session.user_id || session.userId;
-  return findUserById(userId);
+  const user = await findUserById(userId);
+  return user ? { user, session } : null;
 }
 
 function requireAuth(handler) {
   return asyncHandler(async (req, res, next) => {
-    const user = await attachCurrentUser(req);
+    const attached = await attachCurrentUser(req, res);
+    const user = attached?.user;
     if (!user || user.status !== "ACTIVE") {
       res.clearCookie(SESSION_COOKIE);
       return res.status(401).json({ error: "Authentication required" });
     }
     req.currentUser = user;
+    req.currentSession = attached.session;
     return handler(req, res, next);
   });
 }
@@ -1386,6 +1615,7 @@ app.get(
 
 app.post(
   "/api/auth/login",
+  rateLimitBy("auth-login", { windowMs: 15 * 60 * 1000, max: 10 }, (req) => `${clientIp(req)}:${`${req.body?.email || ""}`.trim().toLowerCase()}`),
   asyncHandler(async (req, res) => {
     const email = `${req.body.email || ""}`.trim().toLowerCase();
     const password = `${req.body.password || ""}`;
@@ -1394,15 +1624,33 @@ app.post(
     }
     const user = await findUserByEmail(email);
     if (!user || user.status !== "ACTIVE" || !verifyPassword(password, user.passwordHash)) {
+      const store = await getStore();
+      pushAudit(store, {
+        actorName: email || "Unknown account",
+        actorRole: "ANONYMOUS",
+        action: `Failed login attempt from ${clientIp(req)}`,
+        entityType: "AUTH",
+        entityId: email || "unknown",
+        tone: "warning"
+      });
+      await saveStore(store);
       return res.status(401).json({ error: "Invalid email or password" });
     }
-    const session = await createSession(user.id);
-    res.cookie(SESSION_COOKIE, session.sessionToken, {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: false,
-      maxAge: SESSION_TTL_DAYS * 24 * 60 * 60 * 1000
+    const session = await createSession(user.id, {
+      clientIp: clientIp(req),
+      userAgent: req.headers["user-agent"] || null
     });
+    res.cookie(SESSION_COOKIE, session.sessionToken, sessionCookieOptions(new Date(session.expiresAt).getTime() - Date.now()));
+    const store = await getStore();
+    pushAudit(store, {
+      actorName: user.name,
+      actorRole: user.role,
+      action: `Successful login from ${clientIp(req)}`,
+      entityType: "AUTH",
+      entityId: user.id,
+      tone: "success"
+    });
+    await saveStore(store);
     res.json({ ok: true, user: safeUser(user) });
   })
 );
@@ -1411,6 +1659,16 @@ app.post(
   "/api/auth/logout",
   requireAuth(async (req, res) => {
     await deleteSession(req.cookies[SESSION_COOKIE]);
+    const store = await getStore();
+    pushAudit(store, {
+      actorName: req.currentUser.name,
+      actorRole: req.currentUser.role,
+      action: "Logged out and revoked session",
+      entityType: "AUTH",
+      entityId: req.currentUser.id,
+      tone: "info"
+    });
+    await saveStore(store);
     res.clearCookie(SESSION_COOKIE);
     res.json({ ok: true });
   })
@@ -1419,7 +1677,8 @@ app.post(
 app.get(
   "/api/auth/me",
   asyncHandler(async (req, res) => {
-    const user = await attachCurrentUser(req);
+    const attached = await attachCurrentUser(req, res);
+    const user = attached?.user;
     if (!user || user.status !== "ACTIVE") {
       return res.status(401).json({ error: "Not authenticated" });
     }
@@ -1429,6 +1688,7 @@ app.get(
 
 app.post(
   "/api/device/activate",
+  rateLimitBy("device-activate", { windowMs: 60 * 1000, max: 30 }, (req) => `${clientIp(req)}:${`${req.body?.deviceId || ""}`.trim()}`),
   asyncHandler(async (req, res) => {
     const deviceId = req.body.deviceId || randomToken(6);
     const macAddress = req.body.macAddress || null;
@@ -1484,7 +1744,7 @@ app.get(
   "/api/launcher/content",
   asyncHandler(async (req, res) => {
     const sessionToken = req.query.sessionToken;
-    const binding = await findBindingBySessionToken(sessionToken);
+    const binding = await requireActiveBinding(sessionToken);
     if (!binding) {
       return res.status(401).json({ error: "Invalid session token" });
     }
@@ -1495,12 +1755,13 @@ app.get(
 
 app.post(
   "/api/device/status",
+  rateLimitBy("device-status", { windowMs: 60 * 1000, max: 180 }, (req) => `${clientIp(req)}:${`${req.body?.sessionToken || ""}`.trim()}`),
   asyncHandler(async (req, res) => {
     const sessionToken = `${req.body.sessionToken || ""}`.trim();
     if (!sessionToken) {
       return res.status(400).json({ error: "sessionToken is required" });
     }
-    const binding = await findBindingBySessionToken(sessionToken);
+    const binding = await requireActiveBinding(sessionToken);
     if (!binding) {
       return res.status(401).json({ error: "Invalid session token" });
     }
@@ -1580,9 +1841,16 @@ app.patch(
         return res.status(400).json({ error: "At least one active super admin must remain." });
       }
     }
+    const invalidatesSessions =
+      Boolean(req.body.password) ||
+      (req.body.role && req.body.role !== current.role) ||
+      (req.body.status && req.body.status !== current.status);
     const user = await updateUser(req.params.userId, req.body || {});
     if (!user) {
       return res.status(404).json({ error: "User not found" });
+    }
+    if (invalidatesSessions) {
+      await deleteSessionsByUserId(req.params.userId);
     }
     const store = await getStore();
     pushAudit(store, {
@@ -1593,6 +1861,16 @@ app.patch(
       entityId: user.id,
       tone: "info"
     });
+    if (invalidatesSessions) {
+      pushAudit(store, {
+        actorName: req.currentUser.name,
+        actorRole: req.currentUser.role,
+        action: `Revoked active sessions for ${user.name}`,
+        entityType: "AUTH",
+        entityId: user.id,
+        tone: "warning"
+      });
+    }
     await saveStore(store);
     res.json({ ok: true, user });
   })
@@ -1610,12 +1888,21 @@ app.delete(
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
+    await deleteSessionsByUserId(req.params.userId);
     const store = await getStore();
     pushAudit(store, {
       actorName: req.currentUser.name,
       actorRole: req.currentUser.role,
       action: `Archived user account for ${user.name}`,
       entityType: "USER",
+      entityId: user.id,
+      tone: "warning"
+    });
+    pushAudit(store, {
+      actorName: req.currentUser.name,
+      actorRole: req.currentUser.role,
+      action: `Revoked active sessions for archived user ${user.name}`,
+      entityType: "AUTH",
       entityId: user.id,
       tone: "warning"
     });
@@ -2160,6 +2447,7 @@ app.delete(
 
 app.post(
   "/api/admin/bind",
+  rateLimitBy("admin-bind", { windowMs: 60 * 1000, max: 40 }, (req) => `${clientIp(req)}:${req.currentUser?.id || "unknown"}`),
   requireModuleAction("binding", "create", async (req, res) => {
     const store = await getStore();
     const activationCode = `${req.body.activationCode || ""}`.trim().toUpperCase();
@@ -2208,7 +2496,8 @@ app.post(
       roomNumber,
       deviceId: pendingEntry.deviceId,
       macAddress: pendingEntry.macAddress,
-      boundAt: nowIso()
+      boundAt: nowIso(),
+      expiresAt: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString()
     };
     await createBinding(binding);
     await deletePendingActivation(pendingEntry.pollToken);
@@ -2235,6 +2524,7 @@ app.get(
 
 app.post(
   "/api/admin/upload-auth",
+  rateLimitBy("upload-auth", { windowMs: 60 * 1000, max: 25 }, (req) => `${clientIp(req)}:${req.currentUser?.id || "unknown"}`),
   requireModuleAction("content", "create", async (req, res) => {
     if (!IMAGEKIT_PUBLIC_KEY || !IMAGEKIT_PRIVATE_KEY) {
       return res.status(503).json({ error: "ImageKit upload is not configured." });
@@ -2242,6 +2532,12 @@ app.post(
     const kind = `${req.body.kind || "background"}`.trim().toLowerCase();
     const bucket = `${req.body.bucket || "home"}`.trim().toLowerCase();
     const originalName = `${req.body.originalName || "asset"}`.trim() || "asset";
+    if (!["startup", "background"].includes(kind)) {
+      return res.status(400).json({ error: "Invalid upload kind" });
+    }
+    if (kind === "background" && !["home", "roomservice", "foodmenu", "inputs"].includes(bucket.replace(/\s+/g, "").toLowerCase())) {
+      return res.status(400).json({ error: "Invalid upload bucket" });
+    }
     const auth = buildImageKitUploadAuth();
     const ext = sanitizeExt(originalName);
     const fileName = `${Date.now()}-${crypto.randomBytes(4).toString("hex")}${ext}`;
@@ -2264,6 +2560,7 @@ app.post(
 
 app.post(
   "/api/admin/assets/register",
+  rateLimitBy("asset-register", { windowMs: 60 * 1000, max: 25 }, (req) => `${clientIp(req)}:${req.currentUser?.id || "unknown"}`),
   requireModuleAction("content", "create", async (req, res) => {
     const store = await getStore();
     const kind = `${req.body.kind || "background"}`.trim().toLowerCase();
@@ -2272,6 +2569,12 @@ app.post(
     const mimeType = `${req.body.mimeType || ""}`.trim().toLowerCase();
     if (!originalUrl) {
       return res.status(400).json({ error: "originalUrl is required" });
+    }
+    if (!["startup", "background"].includes(kind)) {
+      return res.status(400).json({ error: "Invalid asset kind" });
+    }
+    if (!assertImageKitUrl(originalUrl)) {
+      return res.status(400).json({ error: "Only HTTPS ImageKit asset URLs are allowed" });
     }
     const deliveryUrl = buildImageKitDeliveryUrl(originalUrl, { kind, mimeType });
     if (kind === "startup") {
@@ -2295,6 +2598,7 @@ app.post(
 
 app.post(
   "/api/admin/upload",
+  rateLimitBy("legacy-upload", { windowMs: 60 * 1000, max: 10 }, (req) => `${clientIp(req)}:${req.currentUser?.id || "unknown"}`),
   requireModuleAction("content", "create", async (req, res) => {
     await new Promise((resolve, reject) => {
       upload.single("file")(req, res, (error) => {
