@@ -66,6 +66,31 @@ const IS_PRODUCTION =
   process.env.VERCEL_ENV === "production" ||
   process.env.VERCEL === "1";
 
+function deriveFallbackSessionSecret() {
+  const seedParts = [
+    DATABASE_URL,
+    IMAGEKIT_PRIVATE_KEY,
+    process.env.FIRST_ADMIN_EMAIL || "",
+    process.env.FIRST_ADMIN_PROPERTY_ID || process.env.PROPERTY_ID || "",
+    process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL || "hotel-central-admin-panel"
+  ].filter(Boolean);
+  if (seedParts.length === 0) {
+    return "";
+  }
+  return crypto.createHash("sha256").update(seedParts.join("|")).digest("hex");
+}
+
+const EFFECTIVE_SESSION_SECRET = SESSION_SECRET || deriveFallbackSessionSecret();
+const SESSION_SECRET_IS_DERIVED = !SESSION_SECRET && Boolean(EFFECTIVE_SESSION_SECRET);
+const RUNTIME_WARNINGS = [];
+
+if (IS_PRODUCTION && SESSION_SECRET_IS_DERIVED) {
+  const warning =
+    "SESSION_SECRET is not set in production. Using a stable derived fallback secret. Set SESSION_SECRET in Vercel to remove this warning.";
+  RUNTIME_WARNINGS.push(warning);
+  console.warn(warning);
+}
+
 const NEEDS_LOCAL_STORE = !DATABASE_URL;
 const NEEDS_LOCAL_UPLOADS = !IMAGEKIT_PRIVATE_KEY;
 const DIRS_TO_CREATE = new Set([PUBLIC_DIR]);
@@ -201,8 +226,8 @@ function validateRuntimeConfig() {
   if (IS_PRODUCTION && !DATABASE_URL) {
     throw new Error("DATABASE_URL is required in production.");
   }
-  if (IS_PRODUCTION && !SESSION_SECRET) {
-    throw new Error("SESSION_SECRET is required in production.");
+  if (IS_PRODUCTION && !EFFECTIVE_SESSION_SECRET) {
+    throw new Error("SESSION_SECRET is required in production or must be derivable from configured secrets.");
   }
 }
 
@@ -214,7 +239,7 @@ function ensureImageKitConfigured() {
 
 function randomToken(size = 8) {
   const entropy = crypto.randomBytes(size).toString("hex");
-  const secret = SESSION_SECRET || `dev-secret:${PORT}`;
+  const secret = EFFECTIVE_SESSION_SECRET || `dev-secret:${PORT}`;
   return crypto
     .createHmac("sha256", secret)
     .update(`${Date.now()}:${entropy}:${randomToken.counter++}`)
@@ -1300,14 +1325,15 @@ async function buildAdminState(user) {
     metrics,
     workflowSteps: buildWorkflowSteps(metrics),
     systemHealth: {
-      apiStatus: "Healthy",
+      apiStatus: RUNTIME_WARNINGS.length ? "Degraded" : "Healthy",
       lastPushTime: store.sync.updatedAt,
       lastDeviceHeartbeat,
       launcherVersion:
         Object.values(deviceStatuses)
           .map((status) => status.launcherVersion)
           .find(Boolean) || "Not configured",
-      syncVersion: store.sync.version
+      syncVersion: store.sync.version,
+      warnings: RUNTIME_WARNINGS
     },
     notifications: (store.notifications || []).slice(0, 10),
     auditLogs: canModuleAction(user.role, "audit", "view") ? (store.auditLogs || []).slice(0, 50) : [],
@@ -1609,7 +1635,9 @@ app.get(
       ok: true,
       service: "hotel-central-admin-panel",
       database,
-      imageStorage: IMAGEKIT_PRIVATE_KEY ? "imagekit" : "local"
+      imageStorage: IMAGEKIT_PRIVATE_KEY ? "imagekit" : "local",
+      sessionSecret: SESSION_SECRET ? "configured" : SESSION_SECRET_IS_DERIVED ? "derived" : "missing",
+      warnings: RUNTIME_WARNINGS
     });
   })
 );
