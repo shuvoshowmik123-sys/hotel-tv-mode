@@ -148,7 +148,7 @@ function createDefaultStore() {
     notifications: [],
     sync: {
       version: 1,
-      ttlSeconds: 300,
+      ttlSeconds: 15,
       updatedAt: nowIso()
     }
   };

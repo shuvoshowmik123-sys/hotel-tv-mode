@@ -1427,6 +1427,7 @@ function buildPayload(store, binding) {
   return {
     roomNumber: room.roomNumber,
     guestName: room.guestName || "",
+    welcomeNote: room.welcomeNote || "",
     hotel: normalizeHotelAssets(store.hotel),
     weather: store.weather,
     popup: store.popup,
@@ -1437,7 +1438,7 @@ function buildPayload(store, binding) {
     visibility: store.visibility,
     sync: {
       version: store.sync.version,
-      ttlSeconds: store.sync.ttlSeconds || 300,
+      ttlSeconds: Number(store.sync.ttlSeconds || 15) || 15,
       updatedAt: store.sync.updatedAt || nowIso()
     }
   };

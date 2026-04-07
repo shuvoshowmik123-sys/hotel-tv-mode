@@ -2,15 +2,14 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { AnimatePresence, motion } from "motion/react";
 import { BentoCard } from "../../../components/BentoCard";
 import { ConfirmModal } from "../../../components/ConfirmModal";
 import { RoomDetailOverlay } from "../../../components/RoomDetailOverlay";
 import { PillButton, StatusPill } from "../../../components/UIElements";
 import { useFeedback } from "../../../components/FeedbackProvider";
-import { api, ApiError } from "../../../lib/api";
+import { api } from "../../../lib/api";
 import { canModuleAction } from "../../../lib/permissions";
-import { CLIMATE_CONTROL_OPTIONS, ROOM_CATEGORY_OPTIONS, climateControlBadge, roomCategoryBadge } from "../../../lib/roomOptions";
+import { climateControlBadge, roomCategoryBadge } from "../../../lib/roomOptions";
 
 function roomStatusTone(status?: string): "occupied" | "vacant" | "warning" | "default" {
     if (status === "occupied") return "occupied";
@@ -26,12 +25,6 @@ export default function RoomsPage() {
     const [checkoutTarget, setCheckoutTarget] = useState<any>(null);
     const [unbindTarget, setUnbindTarget] = useState<any>(null);
     const [deleteTarget, setDeleteTarget] = useState<any>(null);
-    const [isAddingRoom, setIsAddingRoom] = useState(false);
-    const [newRoomNumber, setNewRoomNumber] = useState("");
-    const [newFloor, setNewFloor] = useState("");
-    const [newRoomCategory, setNewRoomCategory] = useState<string>(ROOM_CATEGORY_OPTIONS[0]);
-    const [newClimateControl, setNewClimateControl] = useState<string>(CLIMATE_CONTROL_OPTIONS[0]);
-    const [newRoomErrors, setNewRoomErrors] = useState<Record<string, string>>({});
     const [inventorySearch, setInventorySearch] = useState("");
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -89,15 +82,7 @@ export default function RoomsPage() {
         : null;
 
     const currentRole = data?.currentUser?.role;
-    const canCreateRooms = canModuleAction(currentRole, "rooms", "create");
-
-    const validateNewRoom = () => {
-        const nextErrors: Record<string, string> = {};
-        if (!newRoomNumber.trim()) nextErrors.roomNumber = "Room number is required.";
-        if (!newFloor.trim()) nextErrors.floor = "Floor is required.";
-        setNewRoomErrors(nextErrors);
-        return Object.keys(nextErrors).length === 0;
-    };
+    const canManageBindings = canModuleAction(currentRole, "binding", "manage");
 
     if (loading) return <div className="text-luxury-800">Loading...</div>;
 
@@ -115,18 +100,6 @@ export default function RoomsPage() {
             <BentoCard
                 title="Room Inventory"
                 eyebrow="Floor-by-floor operational overview"
-                actions={canCreateRooms ? (
-                    <PillButton primary onClick={() => {
-                        setIsAddingRoom(true);
-                        setNewRoomNumber("");
-                        setNewFloor("");
-                        setNewRoomCategory(ROOM_CATEGORY_OPTIONS[0]);
-                        setNewClimateControl(CLIMATE_CONTROL_OPTIONS[0]);
-                        setNewRoomErrors({});
-                    }}>
-                        Add Room
-                    </PillButton>
-                ) : undefined}
             >
                 <div className="mb-5 mt-4 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                     <div className="max-w-2xl text-sm text-luxury-800/60">
@@ -155,7 +128,16 @@ export default function RoomsPage() {
                     {rooms.length === 0 && (
                         <div className="flex min-h-[180px] flex-col items-center justify-center rounded-[24px] border-2 border-dashed border-luxury-200 bg-luxury-50/60 text-center">
                             <div className="text-base font-semibold text-luxury-900">No rooms created yet</div>
-                            <div className="mt-2 max-w-md text-sm text-luxury-800/55">Create the first room so staff can bind TVs, manage guest sessions, and organize the hotel floor by floor.</div>
+                            <div className="mt-2 max-w-md text-sm text-luxury-800/55">
+                                Room inventory is created automatically when reception binds a TV to a room. Start from Binding instead of creating rooms manually here.
+                            </div>
+                            {canManageBindings && (
+                                <div className="mt-5">
+                                    <PillButton primary type="button" onClick={() => router.push("/binding")}>
+                                        Open Binding
+                                    </PillButton>
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -270,64 +252,6 @@ export default function RoomsPage() {
                     setDeleteTarget(null);
                 }
             }} />
-
-            <AnimatePresence>
-                {isAddingRoom && (
-                    <>
-                        <motion.div className="fixed inset-0 z-40 bg-black/45 backdrop-blur-sm" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsAddingRoom(false)} />
-                        <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-4" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 12 }}>
-                            <div className="w-full max-w-md" onClick={(event) => event.stopPropagation()}>
-                                <BentoCard title="Add New Room" eyebrow="Create room inventory before assignment">
-                                    <form className="mt-4 space-y-4" onSubmit={async (event) => {
-                                        event.preventDefault();
-                                        if (!validateNewRoom()) return;
-                                        try {
-                                            await api("/api/admin/rooms", { method: "POST", body: JSON.stringify({ roomNumber: newRoomNumber.trim(), floor: newFloor.trim(), roomCategory: newRoomCategory, climateControl: newClimateControl }) });
-                                            notify({ tone: "success", message: `Created room ${newRoomNumber.trim()}.` });
-                                            setIsAddingRoom(false);
-                                            updateQuery({ selected: newRoomNumber.trim() });
-                                            await load();
-                                        } catch (error: any) {
-                                            const fieldErrors = error instanceof ApiError ? error.fieldErrors : {};
-                                            setNewRoomErrors(Object.keys(fieldErrors).length ? fieldErrors : { roomNumber: error.message || "Failed to create room." });
-                                            notify({ tone: "error", message: error.message || "Failed to create room." });
-                                        }
-                                    }}>
-                                        <div>
-                                            <label className="mb-1 block text-xs font-bold uppercase tracking-wider text-luxury-800/60">Room Number</label>
-                                            <input autoFocus type="text" value={newRoomNumber} onChange={(event) => setNewRoomNumber(event.target.value)} className="field-input" placeholder="e.g. 101" />
-                                            {newRoomErrors.roomNumber && <div className="field-error">{newRoomErrors.roomNumber}</div>}
-                                        </div>
-                                        <div>
-                                            <label className="mb-1 block text-xs font-bold uppercase tracking-wider text-luxury-800/60">Floor</label>
-                                            <input type="text" value={newFloor} onChange={(event) => setNewFloor(event.target.value)} className="field-input" placeholder="e.g. 1" />
-                                            {newRoomErrors.floor && <div className="field-error">{newRoomErrors.floor}</div>}
-                                        </div>
-                                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                                            <div>
-                                                <label className="mb-1 block text-xs font-bold uppercase tracking-wider text-luxury-800/60">Room Category</label>
-                                                <select value={newRoomCategory} onChange={(event) => setNewRoomCategory(event.target.value)} className="field-input">
-                                                    {ROOM_CATEGORY_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}
-                                                </select>
-                                            </div>
-                                            <div>
-                                                <label className="mb-1 block text-xs font-bold uppercase tracking-wider text-luxury-800/60">Climate Type</label>
-                                                <select value={newClimateControl} onChange={(event) => setNewClimateControl(event.target.value)} className="field-input">
-                                                    {CLIMATE_CONTROL_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}
-                                                </select>
-                                            </div>
-                                        </div>
-                                        <div className="flex justify-end gap-3 pt-3">
-                                            <PillButton type="button" onClick={() => setIsAddingRoom(false)}>Cancel</PillButton>
-                                            <PillButton primary type="submit">Create Room</PillButton>
-                                        </div>
-                                    </form>
-                                </BentoCard>
-                            </div>
-                        </motion.div>
-                    </>
-                )}
-            </AnimatePresence>
         </div>
     );
 }

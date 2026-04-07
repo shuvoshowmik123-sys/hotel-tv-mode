@@ -86,11 +86,19 @@ export function RoomDetailOverlay({
                                         </span>
                                     </div>
                                 </div>
-                                <div className="flex flex-wrap justify-end gap-3">
+                                <div className="flex flex-wrap items-start justify-end gap-3">
                                     {room.guestName && canManageSessions && <PillButton type="button" onClick={onCheckout}>Checkout</PillButton>}
                                     {canManageBindings && <PillButton type="button" onClick={onUnbind} disabled={!room.deviceId}>Unbind TV</PillButton>}
                                     {canDeleteRooms && <PillButton type="button" onClick={onDelete}>Delete / Archive</PillButton>}
-                                    <PillButton type="button" onClick={onClose}>Back to Inventory</PillButton>
+                                    <PillButton
+                                        type="button"
+                                        onClick={onClose}
+                                        className="!h-11 !w-11 !p-0 text-[28px] leading-none"
+                                        aria-label="Close room details"
+                                        title="Close room details"
+                                    >
+                                        ×
+                                    </PillButton>
                                 </div>
                             </div>
 

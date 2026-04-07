@@ -61,11 +61,15 @@
     color: var(--color-luxury-900);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
+    -webkit-user-select: none;
+    user-select: none;
     caret-color: transparent;
   }
 
   button,
-  a[href] {
+  a[href],
+  img,
+  svg {
     -webkit-user-select: none;
     user-select: none;
     caret-color: transparent;
@@ -74,7 +78,8 @@
   input,
   textarea,
   select,
-  [contenteditable="true"] {
+  [contenteditable="true"],
+  [data-selectable="true"] {
     -webkit-user-select: text;
     user-select: text;
     caret-color: auto;
