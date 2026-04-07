@@ -73,8 +73,9 @@ export function Sidebar({
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.15, duration: 0.4 }}
             >
-                <motion.div
-                    className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-lg text-white cursor-pointer"
+                <motion.button
+                    type="button"
+                    className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-lg text-white cursor-pointer select-none"
                     style={{ background: "linear-gradient(135deg, #E6C56E 0%, #C9A84C 60%, #AB8B39 100%)", boxShadow: "0 4px 12px rgb(201 168 76 / 0.4)" }}
                     animate={{ y: [0, -3, 0] }}
                     transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
@@ -82,7 +83,7 @@ export function Sidebar({
                     title={collapsed ? "Expand menu" : "Collapse menu"}
                 >
                     CP
-                </motion.div>
+                </motion.button>
                 {!collapsed && (
                     <div>
                         <h2 className="font-bold leading-tight" style={{ color: "#292620", fontSize: 15 }}>

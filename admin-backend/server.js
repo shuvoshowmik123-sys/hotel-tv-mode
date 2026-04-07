@@ -1152,8 +1152,8 @@ function buildImageKitUploadAuth() {
   const expire = Math.floor(Date.now() / 1000) + 10 * 60;
   const token = randomToken(16);
   const signature = crypto
-    .createHash("sha1")
-    .update(`${token}${expire}${IMAGEKIT_PRIVATE_KEY}`)
+    .createHmac("sha1", IMAGEKIT_PRIVATE_KEY)
+    .update(`${token}${expire}`)
     .digest("hex");
   return { token, expire, signature };
 }
