@@ -253,6 +253,10 @@ const ACTIVATION_CODE_LENGTH = Math.min(
   Math.max(10, Number(process.env.ACTIVATION_CODE_LENGTH || 10) || 10)
 );
 
+function isHumanActivationCode(value) {
+  return new RegExp(`^[${ACTIVATION_CODE_CHARS}]{${ACTIVATION_CODE_LENGTH}}$`).test(`${value || ""}`.trim().toUpperCase());
+}
+
 function generateActivationCode(length = ACTIVATION_CODE_LENGTH) {
   let code = "";
   const bytes = crypto.randomBytes(length);
@@ -271,6 +275,38 @@ async function createUniqueActivationCode(length = ACTIVATION_CODE_LENGTH) {
     }
   }
   return `${randomToken(6).toUpperCase().slice(0, length)}`.padEnd(length, "X");
+}
+
+async function repairPendingActivationCodes() {
+  if (!pool) {
+    const state = readFileState();
+    let changed = false;
+    for (const [pollToken, pending] of Object.entries(state.pendingActivations || {})) {
+      if (!isHumanActivationCode(pending.activationCode)) {
+        state.pendingActivations[pollToken] = {
+          ...pending,
+          activationCode: await createUniqueActivationCode()
+        };
+        changed = true;
+      }
+    }
+    if (changed) {
+      writeFileState(state);
+    }
+    return;
+  }
+
+  const result = await pool.query(
+    "SELECT poll_token, activation_code FROM pending_activations"
+  );
+  for (const row of result.rows) {
+    if (!isHumanActivationCode(row.activation_code)) {
+      await pool.query(
+        "UPDATE pending_activations SET activation_code = $2 WHERE poll_token = $1",
+        [row.poll_token, await createUniqueActivationCode()]
+      );
+    }
+  }
 }
 
 function createFileSeed() {
@@ -352,6 +388,7 @@ function writeFileState(state) {
 async function ensureDatabase() {
   validateRuntimeConfig();
   if (!pool) {
+    await repairPendingActivationCodes();
     return;
   }
   await pool.query(`
@@ -447,6 +484,8 @@ async function ensureDatabase() {
   if (resetLegacyDemoData) {
     await pool.query("TRUNCATE pending_activations, device_bindings, device_status_reports");
   }
+
+  await repairPendingActivationCodes();
 
   const activeSuperAdminResult = await pool.query(
     `SELECT COUNT(*)::int AS count
@@ -1749,7 +1788,11 @@ app.post(
     const macAddress = req.body.macAddress || null;
     const existing = await findPendingByDeviceId(deviceId);
     if (existing) {
-      return res.json(existing);
+      if (!isHumanActivationCode(existing.activationCode)) {
+        await deletePendingActivation(existing.pollToken);
+      } else {
+        return res.json(existing);
+      }
     }
     const activation = {
       pollToken: randomToken(12),
