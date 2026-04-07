@@ -209,7 +209,7 @@ export default function BindingPage() {
                                                 setFormErrors((current) => ({ ...current, activationCode: "" }));
                                             }}
                                             className={`w-full rounded-xl px-4 py-3 text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-gold-500/50 ${bindingMode === "pending" ? "bg-luxury-100 border border-luxury-200 text-luxury-700 cursor-not-allowed" : "bg-luxury-50 border border-luxury-200 focus:border-gold-500"}`}
-                                            placeholder="e.g. 1Q2W3E"
+                                            placeholder="e.g. AB12CD34EF"
                                             required
                                         />
                                         {formErrors.activationCode && <div className="field-error">{formErrors.activationCode}</div>}

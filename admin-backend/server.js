@@ -247,6 +247,32 @@ function randomToken(size = 8) {
 }
 randomToken.counter = 0;
 
+const ACTIVATION_CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const ACTIVATION_CODE_LENGTH = Math.min(
+  12,
+  Math.max(10, Number(process.env.ACTIVATION_CODE_LENGTH || 10) || 10)
+);
+
+function generateActivationCode(length = ACTIVATION_CODE_LENGTH) {
+  let code = "";
+  const bytes = crypto.randomBytes(length);
+  for (let index = 0; index < length; index += 1) {
+    code += ACTIVATION_CODE_CHARS[bytes[index] % ACTIVATION_CODE_CHARS.length];
+  }
+  return code;
+}
+
+async function createUniqueActivationCode(length = ACTIVATION_CODE_LENGTH) {
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const code = generateActivationCode(length);
+    const existing = await findPendingByActivationCode(code);
+    if (!existing) {
+      return code;
+    }
+  }
+  return `${randomToken(6).toUpperCase().slice(0, length)}`.padEnd(length, "X");
+}
+
 function createFileSeed() {
   return {
     store: createDefaultStore(),
@@ -1727,7 +1753,7 @@ app.post(
     }
     const activation = {
       pollToken: randomToken(12),
-      activationCode: randomToken(3).toUpperCase(),
+      activationCode: await createUniqueActivationCode(),
       deviceId,
       macAddress,
       status: "pending",
