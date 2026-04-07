@@ -14,7 +14,10 @@ export default function ContentPage() {
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState("");
     const [deleteTarget, setDeleteTarget] = useState<any>(null);
-    const [previewTarget, setPreviewTarget] = useState<any>(null);
+    const [previewIndex, setPreviewIndex] = useState(-1);
+    const [previewProgress, setPreviewProgress] = useState(0);
+    const [previewLoaded, setPreviewLoaded] = useState(false);
+    const [previewFailed, setPreviewFailed] = useState(false);
     const [uploadingLabel, setUploadingLabel] = useState("");
     const [startupFileName, setStartupFileName] = useState("");
     const [backgroundFileName, setBackgroundFileName] = useState("");
@@ -147,17 +150,55 @@ export default function ContentPage() {
             return decodeURIComponent(parts[parts.length - 1] || source);
         }
     };
-
-    if (loading) return <div>Loading...</div>;
-
     const assets = data?.assets || [];
     const startupAsset = assets.find((asset: any) => asset.kind === "startup");
     const backgroundAssets = assets.filter((asset: any) => asset.kind === "background");
+    const galleryAssets = startupAsset ? [startupAsset, ...backgroundAssets] : backgroundAssets;
+    const previewTarget = previewIndex >= 0 ? galleryAssets[previewIndex] ?? null : null;
     const buckets = ["home", "roomService", "foodMenu", "inputs"];
     const currentRole = data?.currentUser?.role;
     const canCreateContent = canModuleAction(currentRole, "content", "create");
     const canEditContent = canModuleAction(currentRole, "content", "edit");
     const canDeleteContent = canModuleAction(currentRole, "content", "delete");
+
+    useEffect(() => {
+        if (!previewTarget) {
+            setPreviewProgress(0);
+            setPreviewLoaded(false);
+            setPreviewFailed(false);
+            return;
+        }
+
+        setPreviewProgress(0);
+        setPreviewLoaded(false);
+        setPreviewFailed(false);
+
+        const timer = window.setInterval(() => {
+            setPreviewProgress((current) => {
+                if (current >= 92) {
+                    return current;
+                }
+                return Math.min(92, current + Math.max(4, Math.round((100 - current) / 8)));
+            });
+        }, 90);
+
+        return () => window.clearInterval(timer);
+    }, [previewTarget?.id]);
+
+    useEffect(() => {
+        if (!previewTarget && previewIndex !== -1) {
+            setPreviewIndex(-1);
+        }
+    }, [previewIndex, previewTarget]);
+
+    const openPreview = (asset: any) => {
+        const index = galleryAssets.findIndex((entry: any) => entry.id === asset.id);
+        if (index >= 0) {
+            setPreviewIndex(index);
+        }
+    };
+
+    if (loading) return <div>Loading...</div>;
 
     return (
         <div className="space-y-6">
@@ -204,7 +245,7 @@ export default function ContentPage() {
                             <div className="space-y-3">
                                 <button
                                     type="button"
-                                    onClick={() => setPreviewTarget(startupAsset)}
+                                    onClick={() => openPreview(startupAsset)}
                                     className="flex w-full items-center justify-between gap-3 rounded-xl border border-luxury-100 bg-white px-4 py-3 text-left transition-colors hover:bg-luxury-50"
                                 >
                                     <div className="min-w-0">
@@ -288,7 +329,7 @@ export default function ContentPage() {
                                                 <div key={asset.id} className="flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-2 border border-luxury-100">
                                                     <button
                                                         type="button"
-                                                        onClick={() => setPreviewTarget(asset)}
+                                                        onClick={() => openPreview(asset)}
                                                         className="min-w-0 flex-1 text-left"
                                                     >
                                                         <div className="truncate text-sm font-semibold text-luxury-900">{assetDisplayName(asset)}</div>
@@ -390,35 +431,103 @@ export default function ContentPage() {
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
-                            onClick={() => setPreviewTarget(null)}
+                            onClick={() => setPreviewIndex(-1)}
                         />
                         <motion.div
-                            className="fixed inset-0 z-50 overflow-y-auto p-4 lg:p-8"
+                            className="fixed inset-0 z-50 p-4 lg:p-8"
                             initial={{ opacity: 0, y: 12 }}
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: 12 }}
                         >
-                            <div className="mx-auto max-w-5xl" onClick={(event) => event.stopPropagation()}>
-                                <BentoCard title="Asset Preview" eyebrow={previewTarget.kind === "startup" ? "Startup media" : `${previewTarget.bucket} background`}>
-                                    <div className="mt-4 space-y-4">
-                                        <div className="flex flex-wrap items-center justify-between gap-3">
-                                            <div>
-                                                <div className="text-lg font-semibold text-luxury-900">{assetDisplayName(previewTarget)}</div>
-                                                <div className="text-sm text-luxury-800/55">
-                                                    This preview stays inside the central admin panel and does not expose the raw storage link.
-                                                </div>
+                            <div className="mx-auto flex h-full max-w-6xl items-center justify-center" onClick={(event) => event.stopPropagation()}>
+                                <div className="flex h-[min(88vh,920px)] w-full flex-col overflow-hidden rounded-[32px] border border-luxury-200 bg-white shadow-[0_30px_90px_-45px_rgba(0,0,0,0.35)]">
+                                    <div className="flex flex-wrap items-center justify-between gap-4 border-b border-luxury-100 px-6 py-5">
+                                        <div className="min-w-0">
+                                            <div className="text-xs font-bold uppercase tracking-[0.24em] text-luxury-800/45">
+                                                {previewTarget.kind === "startup" ? "Startup media" : `${previewTarget.bucket} background`}
                                             </div>
-                                            <PillButton type="button" onClick={() => setPreviewTarget(null)}>Close</PillButton>
+                                            <div className="mt-1 truncate text-xl font-semibold text-luxury-950">
+                                                {assetDisplayName(previewTarget)}
+                                            </div>
+                                            <div className="mt-1 text-sm text-luxury-800/55">
+                                                Preview {previewIndex + 1} of {galleryAssets.length} inside the central admin panel.
+                                            </div>
                                         </div>
-                                        <div className="overflow-hidden rounded-[28px] border border-luxury-100 bg-luxury-50 p-3 shadow-[0_18px_44px_-30px_rgba(0,0,0,0.18)]">
-                                            <img
-                                                src={previewTarget.url}
-                                                alt={assetDisplayName(previewTarget)}
-                                                className="h-auto max-h-[70vh] w-full rounded-[22px] object-contain bg-white"
-                                            />
+                                        <div className="flex items-center gap-2">
+                                            <PillButton
+                                                type="button"
+                                                onClick={() => setPreviewIndex((current) => Math.max(0, current - 1))}
+                                                className="!px-4"
+                                                disabled={previewIndex <= 0}
+                                            >
+                                                Previous
+                                            </PillButton>
+                                            <PillButton
+                                                type="button"
+                                                onClick={() => setPreviewIndex((current) => Math.min(galleryAssets.length - 1, current + 1))}
+                                                className="!px-4"
+                                                disabled={previewIndex >= galleryAssets.length - 1}
+                                            >
+                                                Next
+                                            </PillButton>
+                                            <PillButton type="button" onClick={() => setPreviewIndex(-1)}>Close</PillButton>
                                         </div>
                                     </div>
-                                </BentoCard>
+                                    <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-luxury-50 px-5 py-5 lg:px-8 lg:py-8">
+                                        <div className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-[28px] border border-luxury-100 bg-white">
+                                            {!previewFailed && (
+                                                <img
+                                                    key={previewTarget.id}
+                                                    src={previewTarget.url}
+                                                    alt={assetDisplayName(previewTarget)}
+                                                    onLoad={() => {
+                                                        setPreviewProgress(100);
+                                                        setPreviewLoaded(true);
+                                                    }}
+                                                    onError={() => {
+                                                        setPreviewProgress(100);
+                                                        setPreviewFailed(true);
+                                                        setPreviewLoaded(false);
+                                                    }}
+                                                    className={`h-full w-full object-contain transition-opacity duration-300 ${previewLoaded ? "opacity-100" : "opacity-0"}`}
+                                                />
+                                            )}
+
+                                            {!previewLoaded && !previewFailed && (
+                                                <div className="absolute inset-0 flex flex-col items-center justify-center gap-5 bg-white px-6 text-center">
+                                                    <div className="text-sm font-semibold uppercase tracking-[0.28em] text-luxury-800/40">
+                                                        Loading Preview
+                                                    </div>
+                                                    <div className="text-5xl font-semibold text-luxury-950">{previewProgress}%</div>
+                                                    <div className="h-2.5 w-full max-w-md overflow-hidden rounded-full bg-luxury-100">
+                                                        <motion.div
+                                                            className="h-full rounded-full bg-gradient-to-r from-gold-500 via-gold-400 to-gold-300"
+                                                            animate={{ width: `${previewProgress}%` }}
+                                                            transition={{ ease: "easeOut", duration: 0.2 }}
+                                                        />
+                                                    </div>
+                                                    <div className="max-w-md text-sm text-luxury-800/55">
+                                                        Preparing the image inside the panel viewer so staff can browse without leaving the dashboard.
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {previewFailed && (
+                                                <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-white px-6 text-center">
+                                                    <div className="text-sm font-semibold uppercase tracking-[0.28em] text-luxury-800/40">
+                                                        Preview Unavailable
+                                                    </div>
+                                                    <div className="text-2xl font-semibold text-luxury-950">
+                                                        This asset could not be displayed.
+                                                    </div>
+                                                    <div className="max-w-lg text-sm text-luxury-800/55">
+                                                        The image link may still be propagating or the asset needs to be reprocessed. You can close this viewer and try again.
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </motion.div>
                     </>
