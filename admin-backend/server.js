@@ -1007,20 +1007,24 @@ function buildAvailableInputs(store, deviceStatuses) {
 function buildAssetEntries(store) {
   const assets = [];
   if (store.hotel?.startupLogoUrl) {
+    const previewUrl = buildImageKitDeliveryUrl(store.hotel.startupLogoUrl, { kind: "startup" });
     assets.push({
-      id: crypto.createHash("md5").update(`startup:${store.hotel.startupLogoUrl}`).digest("hex"),
+      id: crypto.createHash("md5").update(`startup:${previewUrl}`).digest("hex"),
       kind: "startup",
       bucket: "startup",
-      url: store.hotel.startupLogoUrl
+      url: previewUrl,
+      storedUrl: store.hotel.startupLogoUrl
     });
   }
   Object.entries(store.backgrounds || {}).forEach(([bucket, urls]) => {
     (urls || []).forEach((url) => {
+      const previewUrl = buildImageKitDeliveryUrl(url, { kind: "background" });
       assets.push({
-        id: crypto.createHash("md5").update(`${bucket}:${url}`).digest("hex"),
+        id: crypto.createHash("md5").update(`${bucket}:${previewUrl}`).digest("hex"),
         kind: "background",
         bucket,
-        url
+        url: previewUrl,
+        storedUrl: url
       });
     });
   });
@@ -1075,10 +1079,10 @@ async function buildAdminState(user) {
       climateControls: CLIMATE_CONTROL_OPTIONS
     },
     property: store.property,
-    hotel: store.hotel,
+    hotel: normalizeHotelAssets(store.hotel),
     weather: store.weather,
     popup: store.popup,
-    backgrounds: store.backgrounds,
+    backgrounds: normalizeBackgroundMap(store.backgrounds),
     meals,
     sections: Object.values(store.sections || {}).filter((section) => section && section.enabled !== false),
     visibility: store.visibility,
@@ -1128,10 +1132,10 @@ function buildPayload(store, binding) {
   return {
     roomNumber: room.roomNumber,
     guestName: room.guestName || "",
-    hotel: store.hotel,
+    hotel: normalizeHotelAssets(store.hotel),
     weather: store.weather,
     popup: store.popup,
-    backgrounds: store.backgrounds,
+    backgrounds: normalizeBackgroundMap(store.backgrounds),
     meals,
     sections: Object.values(store.sections || {}).filter((section) => section && section.enabled !== false),
     notifications: (store.notifications || []).slice(0, 10),
@@ -1173,10 +1177,44 @@ function buildImageKitDeliveryUrl(sourceUrl, options = {}) {
     if (transforms.length === 0) {
       return sourceUrl;
     }
-    return `${parsed.origin}/tr:${transforms.join(",")}${parsed.pathname}${parsed.search}`;
+    const pathSegments = parsed.pathname.split("/").filter(Boolean);
+    if (pathSegments.length === 0) {
+      return sourceUrl;
+    }
+
+    let endpoint = pathSegments.shift();
+    if (endpoint?.startsWith("tr:")) {
+      endpoint = pathSegments.shift();
+    }
+    if (!endpoint) {
+      return sourceUrl;
+    }
+
+    while (pathSegments[0]?.startsWith("tr:")) {
+      pathSegments.shift();
+    }
+
+    const normalizedPath = `/${[endpoint, `tr:${transforms.join(",")}`, ...pathSegments].join("/")}`;
+    return `${parsed.origin}${normalizedPath}${parsed.search}`;
   } catch {
     return sourceUrl;
   }
+}
+
+function normalizeBackgroundMap(backgrounds = {}) {
+  return Object.fromEntries(
+    Object.entries(backgrounds).map(([bucket, urls]) => [
+      bucket,
+      (urls || []).map((url) => buildImageKitDeliveryUrl(url, { kind: "background" }))
+    ])
+  );
+}
+
+function normalizeHotelAssets(hotel = {}) {
+  return {
+    ...hotel,
+    startupLogoUrl: buildImageKitDeliveryUrl(hotel.startupLogoUrl, { kind: "startup", mimeType: "image/png" })
+  };
 }
 
 function localRelativeUrl(kind, bucket, fileName) {
@@ -2305,9 +2343,11 @@ app.delete(
     if (asset.kind === "startup") {
       store.hotel.startupLogoUrl = null;
     } else {
-      store.backgrounds[asset.bucket] = (store.backgrounds[asset.bucket] || []).filter((url) => url !== asset.url);
+      store.backgrounds[asset.bucket] = (store.backgrounds[asset.bucket] || []).filter(
+        (url) => (asset.storedUrl ? url !== asset.storedUrl : buildImageKitDeliveryUrl(url, { kind: "background" }) !== asset.url)
+      );
     }
-    bestEffortDeleteLocalAsset(asset.url);
+    bestEffortDeleteLocalAsset(asset.storedUrl || asset.url);
     pushAudit(store, {
       actorName: req.currentUser.name,
       actorRole: req.currentUser.role,
