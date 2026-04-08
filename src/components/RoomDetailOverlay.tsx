@@ -112,6 +112,11 @@ export function RoomDetailOverlay({
                                         <DetailRow label="Sync Freshness" value={room.syncFreshness || "offline"} />
                                         <DetailRow label="Launcher Sync" value={`Device ${room.lastAcknowledgedSyncVersion || 0} / Server ${room.currentSyncVersion || 0}`} />
                                         <DetailRow label="Pending Refresh" value={room.pendingRefresh ? "Waiting for launcher refresh" : "Launcher is current"} />
+                                        <DetailRow label="FCM Token" value={room.fcmTokenPresent ? "Present" : "Missing"} />
+                                        <DetailRow label="Last FCM Seen" value={room.lastFcmSeenAt ? new Date(room.lastFcmSeenAt).toLocaleString() : "Not reported"} />
+                                        <DetailRow label="Last Push" value={room.lastPushAttemptAt ? new Date(room.lastPushAttemptAt).toLocaleString() : "No push attempted"} />
+                                        <DetailRow label="Push Result" value={room.lastPushStatus || "Unknown"} />
+                                        <DetailRow label="Push Error" value={room.lastPushError || "None"} />
                                         <DetailRow label="Session History" value={room.hasSessionHistory ? "Has past guest activity" : "No past guest activity"} />
                                         <DetailRow label="Binding History" value={room.hasBindingHistory ? "Has been bound before" : "Never bound yet"} />
                                     </div>

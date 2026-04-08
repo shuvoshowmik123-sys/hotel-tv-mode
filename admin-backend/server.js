@@ -40,6 +40,7 @@ const { canModuleAction } = require("./lib/permissions");
 
 // ─── Firebase Admin SDK (optional — FCM push-to-TV on admin save) ──────────────
 let firebaseAdmin = null;
+let firebaseAdminInitError = null;
 try {
   const FIREBASE_SA_JSON = process.env.FIREBASE_SERVICE_ACCOUNT_JSON || "";
   if (FIREBASE_SA_JSON) {
@@ -52,8 +53,18 @@ try {
     firebaseAdmin = adminSdk;
   }
 } catch (fcmInitErr) {
+  firebaseAdminInitError = fcmInitErr.message;
   console.warn("Firebase Admin SDK init skipped:", fcmInitErr.message);
 }
+
+let lastFcmPushSummary = {
+  attemptedAt: null,
+  status: firebaseAdmin ? "idle" : "disabled",
+  selectedTokens: 0,
+  successCount: 0,
+  failureCount: 0,
+  error: firebaseAdmin ? "" : (firebaseAdminInitError || "Firebase Admin not configured")
+};
 
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
@@ -448,6 +459,12 @@ async function ensureDatabase() {
       installed_apps JSONB NOT NULL DEFAULT '[]'::jsonb,
       source_inputs JSONB NOT NULL DEFAULT '[]'::jsonb,
       security_flags JSONB NOT NULL DEFAULT '[]'::jsonb,
+      fcm_token TEXT,
+      last_fcm_seen_at TIMESTAMPTZ,
+      last_push_attempt_at TIMESTAMPTZ,
+      last_push_status TEXT,
+      last_push_error TEXT,
+      last_push_success_at TIMESTAMPTZ,
       reported_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
 
@@ -481,6 +498,11 @@ async function ensureDatabase() {
     ALTER TABLE device_status_reports ADD COLUMN IF NOT EXISTS cached_sync_version INTEGER NOT NULL DEFAULT 0;
     ALTER TABLE device_status_reports ADD COLUMN IF NOT EXISTS security_flags JSONB NOT NULL DEFAULT '[]'::jsonb;
     ALTER TABLE device_status_reports ADD COLUMN IF NOT EXISTS fcm_token TEXT;
+    ALTER TABLE device_status_reports ADD COLUMN IF NOT EXISTS last_fcm_seen_at TIMESTAMPTZ;
+    ALTER TABLE device_status_reports ADD COLUMN IF NOT EXISTS last_push_attempt_at TIMESTAMPTZ;
+    ALTER TABLE device_status_reports ADD COLUMN IF NOT EXISTS last_push_status TEXT;
+    ALTER TABLE device_status_reports ADD COLUMN IF NOT EXISTS last_push_error TEXT;
+    ALTER TABLE device_status_reports ADD COLUMN IF NOT EXISTS last_push_success_at TIMESTAMPTZ;
   `);
 
   const existing = await pool.query(
@@ -566,7 +588,9 @@ async function saveStore(store) {
     const state = readFileState();
     state.store = nextStore;
     writeFileState(state);
-    pushFcmRefresh().catch(() => { });
+    pushFcmRefresh().catch((error) => {
+      console.error("pushFcmRefresh failed after local save:", error);
+    });
     return nextStore;
   }
 
@@ -574,27 +598,133 @@ async function saveStore(store) {
     `INSERT INTO launcher_store (store_key, data, updated_at)\r\n     VALUES ('global', $1::jsonb, NOW())\r\n     ON CONFLICT (store_key)\r\n     DO UPDATE SET data = EXCLUDED.data, updated_at = NOW()`,
     [JSON.stringify(nextStore)]
   );
-  pushFcmRefresh().catch(() => { });
+  pushFcmRefresh().catch((error) => {
+    console.error("pushFcmRefresh failed after save:", error);
+  });
   return nextStore;
 }
 
 /** Send a data-only FCM refresh message to every bound TV that has an FCM token. */
 async function pushFcmRefresh() {
-  if (!firebaseAdmin || !pool) return;
+  const attemptedAt = nowIso();
+  if (!pool) {
+    lastFcmPushSummary = {
+      attemptedAt,
+      status: firebaseAdmin ? "skipped-no-database" : "disabled",
+      selectedTokens: 0,
+      successCount: 0,
+      failureCount: 0,
+      error: firebaseAdmin ? "Database unavailable" : (firebaseAdminInitError || "Firebase Admin not configured")
+    };
+    return lastFcmPushSummary;
+  }
+
   const result = await pool.query(
-    "SELECT DISTINCT fcm_token FROM device_status_reports WHERE fcm_token IS NOT NULL AND fcm_token <> ''"
+    `SELECT session_token, room_number, device_id, fcm_token
+     FROM device_status_reports
+     WHERE fcm_token IS NOT NULL AND fcm_token <> ''`
   );
-  const tokens = result.rows.map((r) => r.fcm_token).filter(Boolean);
-  if (tokens.length === 0) return;
-  // Send in chunks of 500 (FCM multicast limit)
-  for (let i = 0; i < tokens.length; i += 500) {
-    const chunk = tokens.slice(i, i + 500);
-    await firebaseAdmin.messaging().sendEachForMulticast({
-      tokens: chunk,
+  const devices = result.rows.filter((row) => row.fcm_token);
+  const attemptSessionTokens = devices.map((row) => row.session_token);
+
+  if (attemptSessionTokens.length) {
+    await pool.query(
+      `UPDATE device_status_reports
+       SET last_push_attempt_at = $2,
+           last_push_status = $3,
+           last_push_error = NULL
+       WHERE session_token = ANY($1::text[])`,
+      [attemptSessionTokens, attemptedAt, firebaseAdmin ? "pending" : "skipped-no-firebase"]
+    );
+  }
+
+  if (!firebaseAdmin) {
+    lastFcmPushSummary = {
+      attemptedAt,
+      status: "disabled",
+      selectedTokens: devices.length,
+      successCount: 0,
+      failureCount: devices.length,
+      error: firebaseAdminInitError || "Firebase Admin not configured"
+    };
+    console.warn("pushFcmRefresh skipped:", lastFcmPushSummary.error);
+    if (attemptSessionTokens.length) {
+      await pool.query(
+        `UPDATE device_status_reports
+         SET last_push_status = 'skipped-no-firebase',
+             last_push_error = $2
+         WHERE session_token = ANY($1::text[])`,
+        [attemptSessionTokens, lastFcmPushSummary.error]
+      );
+    }
+    return lastFcmPushSummary;
+  }
+
+  if (!devices.length) {
+    lastFcmPushSummary = {
+      attemptedAt,
+      status: "no-tokens",
+      selectedTokens: 0,
+      successCount: 0,
+      failureCount: 0,
+      error: ""
+    };
+    console.info("pushFcmRefresh found no device FCM tokens");
+    return lastFcmPushSummary;
+  }
+
+  console.info(`pushFcmRefresh sending to ${devices.length} device(s)`);
+  const tokenResults = new Map();
+  for (let i = 0; i < devices.length; i += 500) {
+    const chunk = devices.slice(i, i + 500);
+    const sendResult = await firebaseAdmin.messaging().sendEachForMulticast({
+      tokens: chunk.map((row) => row.fcm_token),
       data: { action: "refresh" },
       android: { priority: "high" }
     });
+    sendResult.responses.forEach((response, index) => {
+      const device = chunk[index];
+      tokenResults.set(device.session_token, {
+        ok: response.success,
+        error: response.success ? "" : (response.error?.message || "Unknown FCM error")
+      });
+    });
   }
+
+  let successCount = 0;
+  let failureCount = 0;
+  for (const device of devices) {
+    const outcome = tokenResults.get(device.session_token) || { ok: false, error: "No FCM response" };
+    if (outcome.ok) {
+      successCount += 1;
+    } else {
+      failureCount += 1;
+    }
+    await pool.query(
+      `UPDATE device_status_reports
+       SET last_push_status = $2,
+           last_push_error = $3,
+           last_push_success_at = CASE WHEN $2 = 'sent' THEN $4 ELSE last_push_success_at END
+       WHERE session_token = $1`,
+      [
+        device.session_token,
+        outcome.ok ? "sent" : "failed",
+        outcome.error || null,
+        outcome.ok ? attemptedAt : null
+      ]
+    );
+  }
+
+  lastFcmPushSummary = {
+    attemptedAt,
+    status: failureCount ? (successCount ? "partial" : "failed") : "sent",
+    selectedTokens: devices.length,
+    successCount,
+    failureCount,
+    error: failureCount ? "Some devices rejected FCM refresh" : ""
+  };
+  console.info("pushFcmRefresh summary:", JSON.stringify(lastFcmPushSummary));
+  return lastFcmPushSummary;
 }
 
 async function listUsers() {
@@ -1136,6 +1266,12 @@ async function getDeviceStatusesMap() {
       installed_apps,
       source_inputs,
       security_flags,
+      fcm_token,
+      last_fcm_seen_at,
+      last_push_attempt_at,
+      last_push_status,
+      last_push_error,
+      last_push_success_at,
       reported_at
      FROM device_status_reports
      ORDER BY reported_at DESC`
@@ -1155,6 +1291,12 @@ async function getDeviceStatusesMap() {
         installedApps: normalizeReportedInstalledApps(row.installed_apps),
         sourceInputs: normalizeReportedSourceInputs(row.source_inputs),
         securityFlags: normalizeSecurityFlags(row.security_flags),
+        fcmTokenPresent: Boolean(row.fcm_token),
+        lastFcmSeenAt: row.last_fcm_seen_at,
+        lastPushAttemptAt: row.last_push_attempt_at,
+        lastPushStatus: row.last_push_status || "",
+        lastPushError: row.last_push_error || "",
+        lastPushSuccessAt: row.last_push_success_at,
         reportedAt: row.reported_at
       }
     ])
@@ -1165,6 +1307,9 @@ async function saveDeviceStatusReport(report) {
   if (!pool) {
     const state = readFileState();
     state.deviceStatuses = state.deviceStatuses || {};
+    if (report.fcmToken) {
+      report.lastFcmSeenAt = report.reportedAt;
+    }
     state.deviceStatuses[report.sessionToken] = report;
     writeFileState(state);
     return report;
@@ -1184,9 +1329,10 @@ async function saveDeviceStatusReport(report) {
         source_inputs,
         security_flags,
         fcm_token,
+        last_fcm_seen_at,
         reported_at
       )
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10::jsonb, $11::jsonb, $12, $13)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10::jsonb, $11::jsonb, $12, $13, $14)
      ON CONFLICT (session_token)
      DO UPDATE SET
        room_number = EXCLUDED.room_number,
@@ -1200,6 +1346,7 @@ async function saveDeviceStatusReport(report) {
        source_inputs = EXCLUDED.source_inputs,
        security_flags = EXCLUDED.security_flags,
        fcm_token = COALESCE(EXCLUDED.fcm_token, device_status_reports.fcm_token),
+       last_fcm_seen_at = COALESCE(EXCLUDED.last_fcm_seen_at, device_status_reports.last_fcm_seen_at),
        reported_at = EXCLUDED.reported_at`,
     [
       report.sessionToken,
@@ -1214,6 +1361,7 @@ async function saveDeviceStatusReport(report) {
       JSON.stringify(report.sourceInputs || []),
       JSON.stringify(report.securityFlags || []),
       report.fcmToken || null,
+      report.fcmToken ? report.reportedAt : null,
       report.reportedAt
     ]
   );
@@ -1419,7 +1567,13 @@ async function buildAdminState(user) {
           syncFreshness: deviceStatus?.freshness || "offline",
           lastAcknowledgedSyncVersion: Number(deviceStatus?.cachedSyncVersion || 0) || 0,
           currentSyncVersion: Number(store.sync?.version || 0),
-          pendingRefresh: Boolean(deviceStatus && Number(store.sync?.version || 0) > Number(deviceStatus.cachedSyncVersion || 0))
+          pendingRefresh: Boolean(deviceStatus && Number(store.sync?.version || 0) > Number(deviceStatus.cachedSyncVersion || 0)),
+          fcmTokenPresent: Boolean(deviceStatus?.fcmTokenPresent),
+          lastFcmSeenAt: deviceStatus?.lastFcmSeenAt || null,
+          lastPushAttemptAt: deviceStatus?.lastPushAttemptAt || null,
+          lastPushStatus: deviceStatus?.lastPushStatus || "",
+          lastPushError: deviceStatus?.lastPushError || "",
+          lastPushSuccessAt: deviceStatus?.lastPushSuccessAt || null
         }
       ];
     })
@@ -1465,6 +1619,8 @@ async function buildAdminState(user) {
           .map((status) => status.launcherVersion)
           .find(Boolean) || "Not configured",
       syncVersion: store.sync.version,
+      firebaseAdmin: firebaseAdmin ? "configured" : "missing",
+      lastFcmPush: lastFcmPushSummary,
       warnings: RUNTIME_WARNINGS
     },
     notifications: (store.notifications || []).slice(0, 10),
@@ -1769,6 +1925,8 @@ app.get(
       service: "hotel-central-admin-panel",
       database,
       imageStorage: IMAGEKIT_PRIVATE_KEY ? "imagekit" : "local",
+      firebaseAdmin: firebaseAdmin ? "configured" : "missing",
+      lastFcmPush: lastFcmPushSummary,
       sessionSecret: SESSION_SECRET ? "configured" : SESSION_SECRET_IS_DERIVED ? "derived" : "missing",
       warnings: RUNTIME_WARNINGS
     });
@@ -1932,6 +2090,9 @@ app.post(
       return res.status(401).json({ error: "Invalid session token" });
     }
     const report = normalizeDeviceStatusReport(binding, req.body || {});
+    console.info(
+      `device/status room=${binding.roomNumber} device=${binding.deviceId} cachedSync=${report.cachedSyncVersion || 0} fcmTokenPresent=${Boolean(report.fcmToken)}`
+    );
     await saveDeviceStatusReport(report);
 
     const store = await getStore();
