@@ -1242,6 +1242,7 @@ function normalizeDeviceStatusReport(binding, payload) {
     launcherVersion: payload.launcherVersion || null,
     apiBaseUrl: payload.apiBaseUrl || null,
     cachedSyncVersion: Number(payload.cachedSyncVersion || 0) || 0,
+    fcmToken: `${payload.fcmToken || ""}`.trim() || null,
     installedApps: normalizeReportedInstalledApps(payload.installedApps),
     sourceInputs: normalizeReportedSourceInputs(payload.sourceInputs),
     securityFlags: normalizeSecurityFlags(payload.securityFlags),
